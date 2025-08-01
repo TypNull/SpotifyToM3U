@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <asmv1:assembly xsi:schemaLocation="urn:schemas-microsoft-com:asm.v1 assembly.adaptive.xsd" manifestVersion="1.0" xmlns:asmv1="urn:schemas-microsoft-com:asm.v1" xmlns="urn:schemas-microsoft-com:asm.v2" xmlns:asmv2="urn:schemas-microsoft-com:asm.v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:co.v1="urn:schemas-microsoft-com:clickonce.v1" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3" xmlns:dsig="http://www.w3.org/2000/09/xmldsig#" xmlns:co.v2="urn:schemas-microsoft-com:clickonce.v2">
-  <asmv1:assemblyIdentity name="SpotifyToM3U.exe" version="1.0.2.0" publicKeyToken="0000000000000000" language="neutral" processorArchitecture="msil" type="win32" />
+  <asmv1:assemblyIdentity name="SpotifyToM3U.exe" version="1.1.0.0" publicKeyToken="0000000000000000" language="neutral" processorArchitecture="msil" type="win32" />
   <description asmv2:iconFile="Recources\Images\spotify_icon.ico" xmlns="urn:schemas-microsoft-com:asm.v1">A WPF application to convert spotify to m3u8 with your local audio library</description>
   <application />
   <entryPoint>
@@ -81,22 +81,94 @@
       <dsig:DigestValue>ZSgHzFUnhQegAIBpiHLQoD7yo4B22R9dQzPFfJ4iPrw=</dsig:DigestValue>
     </hash>
   </file>
+  <file name="Microsoft.Extensions.Configuration.Abstractions.dll" size="28464">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>O93rzsl+NAF3Yn0MnNvaZ/9e1ciXtj/bFYAne0zs/2Q=</dsig:DigestValue>
+    </hash>
+  </file>
   <file name="Microsoft.Extensions.DependencyInjection.Abstractions.dll" size="65288">
     <hash>
       <dsig:Transforms>
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>nHhvtSW19uwspo9qowgr6MnfbI4Q2aXpXlu8hR7hGKY=</dsig:DigestValue>
+      <dsig:DigestValue>TTKrVuM66nLdZeb8wAyeSAsU+llSEigQV3/EqSTQx1c=</dsig:DigestValue>
     </hash>
   </file>
-  <file name="Microsoft.Extensions.DependencyInjection.dll" size="92440">
+  <file name="Microsoft.Extensions.DependencyInjection.dll" size="92456">
     <hash>
       <dsig:Transforms>
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>FtkQVfzRmHttTOpQlpkYFOBZofoFQRwq3B3dk4xNgRg=</dsig:DigestValue>
+      <dsig:DigestValue>Wi9TG4G3YD39OCdTGJ2UXRL2Bd9CkgpjSUYm+S+4ugA=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.Diagnostics.Abstractions.dll" size="31032">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>RWPVESUY9vWW4TouFU8s7r6Yg/iJct19mG6yYWjy/3Y=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.FileProviders.Abstractions.dll" size="22824">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>PnXTic+YLxOsF1qimKCxlJLJiKYFxXND0WXKxykcgdI=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.Hosting.Abstractions.dll" size="52504">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>csC5t+QTztXKXpzmxUOzvW/w2rnopmv15OkaERC5vSQ=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.Logging.Abstractions.dll" size="66320">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>6F1ilJIdwjw2e/sl530cieVoHOkpILXWEmcdwSwKtc0=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.Logging.dll" size="50848">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>QzCl7+nREK+3+OVn1bQ+7pduD39oAtE6IRtl10dSkXk=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.Options.dll" size="65288">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>f1+A2lnXkSiSIHeb1PdWnJAAV58fz4Y/s1rg6Irnx3c=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="Microsoft.Extensions.Primitives.dll" size="44296">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>+FFXlrCkrOmvQ/jdS+wI5067370hQiRrMU/sndJTaiw=</dsig:DigestValue>
     </hash>
   </file>
   <file name="Microsoft.Xaml.Behaviors.dll" size="147512">
@@ -115,6 +187,42 @@
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
       <dsig:DigestValue>IsZJ91/OW+fHzNqIgEc7Y072ns8z9dGritiSyvR9Wgc=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="NLog.config" size="4537">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>3e+/cUdJr8rJEhTz0hdXoB6yBpYMvvIHn2ffcmsrHvI=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="NLog.dll" size="863232">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>qWr4ZMmf1xhNYl9O77R+zpfTtRzc8prYnH4O1jqSuNo=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="NLog.Extensions.Hosting.dll" size="21504">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>dz/zEQT979MFwl9jfz1M60iDsdmirfpUOvAYtPGFACE=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="NLog.Extensions.Logging.dll" size="74240">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>LsTgxahY4ykXVHwCCwr1LkGwRMnVuykJUa3rMTw6GrE=</dsig:DigestValue>
     </hash>
   </file>
   <file name="Recources\Images\spotify_icon.ico" size="123069">
@@ -153,31 +261,31 @@
       <dsig:DigestValue>CWGln2FA5EZxx/pg4fvCJC4qCPeOVSt5B3cR9YWqXRg=</dsig:DigestValue>
     </hash>
   </file>
-  <file name="SpotifyToM3U.deps.json" size="8512">
+  <file name="SpotifyToM3U.deps.json" size="17778">
     <hash>
       <dsig:Transforms>
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>MrP4t6s+IKGax8ruiIC76rP8F3KbantBd2LoeFogMgQ=</dsig:DigestValue>
+      <dsig:DigestValue>RAJpSe8x5rU8LoEC+QR0A1GviAdL2TSOptUqQNMbJxY=</dsig:DigestValue>
     </hash>
   </file>
-  <file name="SpotifyToM3U.dll" size="562688">
+  <file name="SpotifyToM3U.dll" size="594432">
     <hash>
       <dsig:Transforms>
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>+OELBCi6WVsLnCjkNDYyr7L29R6tofPq1oMSqfXSTmE=</dsig:DigestValue>
+      <dsig:DigestValue>qr9l4IFqIwPMmPLmtstv+zNvOyKFa2MXDHHwhSuNdIM=</dsig:DigestValue>
     </hash>
   </file>
-  <file name="SpotifyToM3U.exe" size="262656">
+  <file name="SpotifyToM3U.exe" size="273408">
     <hash>
       <dsig:Transforms>
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>+OFf1xq+0DqTXLqHcCj9CwAenqClAQZ2FG0d2XFVMXA=</dsig:DigestValue>
+      <dsig:DigestValue>JRnHPNrhHxeXQByjXSLiu2pjZ0U9BcBJBrTbJZW68HI=</dsig:DigestValue>
     </hash>
   </file>
   <file name="SpotifyToM3U.runtimeconfig.json" size="525">
@@ -196,6 +304,15 @@
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
       <dsig:DigestValue>9jS7pl4+LlhCzzuLlkBWBA2zVwDkJD39Zb6GKr2lDQE=</dsig:DigestValue>
+    </hash>
+  </file>
+  <file name="System.Diagnostics.DiagnosticSource.dll" size="173320">
+    <hash>
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
+      <dsig:DigestValue>Bw9IaD1FcWORHUnDJeLRlVN8obQj6bjO5YlQj/Xn6YI=</dsig:DigestValue>
     </hash>
   </file>
   <file name="taglib-sharp.dll" size="491008">

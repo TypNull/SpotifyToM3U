@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<nlog xmlns="http://www.nlog-project.org/schemas/NLog.xsd"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      autoReload="true"
+      internalLogLevel="Info"
+      internalLogFile="${gdc:item=logdir}/internal-nlog.txt">
+
+	<!-- enable asp.net core layout renderers -->
+	<extensions>
+		<add assembly="NLog.Extensions.Hosting"/>
+	</extensions>
+
+	<!-- the targets to write to -->
+	<targets>
+		<!-- Info+ logs (Info, Warn, Error, Fatal) - Production logs -->
+		<target xsi:type="File" name="appInfoFile"
+				fileName="${gdc:item=logdir}/spotifytom3u.txt"
+				archiveSuffixFormat=".{0:0}"
+				layout="${date:format=yyyy-MM-dd HH\:mm\:ss.f}|${level:uppercase=true}|${logger:shortName=true}|${message}${onexception:inner=${newline}Exception: ${exception:format=ToString}${newline}}"
+				archiveAboveSize="30000"
+				maxArchiveFiles="10"
+				keepFileOpen="false"
+				encoding="utf-8" />
+
+		<!-- Debug+ logs (Debug, Info, Warn, Error, Fatal) - Development logs -->
+		<target xsi:type="File" name="appDebugFile"
+				fileName="${gdc:item=logdir}/spotifytom3u.debug.txt"
+				archiveSuffixFormat=".{0:0}"
+				layout="${date:format=yyyy-MM-dd HH\:mm\:ss.fff}|${level:uppercase=true}|${logger:shortName=true}| ${message}${onexception:inner=${newline}Exception: ${exception:format=ToString}${newline}Data: ${exception:format=Data}${newline}}"
+				archiveAboveSize="30000"
+				maxArchiveFiles="10"
+				keepFileOpen="false"
+				encoding="utf-8" />
+
+		<!-- Trace+ logs (Trace, Debug, Info, Warn, Error, Fatal) - Detailed debugging -->
+		<target xsi:type="File" name="appTraceFile"
+				fileName="${gdc:item=logdir}/spotifytom3u.trace.txt"
+				archiveSuffixFormat=".{0:0}"
+				layout="${date:format=yyyy-MM-dd HH\:mm\:ss.fff}|${level:uppercase=true}|${logger:shortName=true}|${callsite:className=false:methodName=true:cleanNamesOfAnonymousDelegates=true:cleanNamesOfAsyncContinuations=true}| ${message}${onexception:inner=${newline}${exception:format=ToString}${newline}}"
+				archiveAboveSize="30000"
+				maxArchiveFiles="10"
+				keepFileOpen="false"
+				encoding="utf-8" />
+
+		<!-- Error+ logs (Error, Fatal) - Error tracking -->
+		<target xsi:type="File" name="appErrorFile"
+				fileName="${gdc:item=logdir}/spotifytom3u.errors.txt"
+				archiveSuffixFormat=".{0:0}"
+				layout="${date:format=yyyy-MM-dd HH\:mm\:ss.fff}|${level:uppercase=true}|${logger:shortName=true}|${message}${onexception:inner=${newline}${exception:format=ToString}${newline}}"
+				archiveAboveSize="30000"
+				maxArchiveFiles="5"
+				keepFileOpen="false"
+				encoding="utf-8" />
+
+		<!-- Console Target -->
+		<target xsi:type="ColoredConsole" name="consoleTarget"
+				layout="[${level}] ${logger:shortName=true}: ${message} ${onexception:inner=${newline}${newline}${exception:format=ToString}${newline}${exception:format=Data}${newline}}" />
+
+		<!-- Debugger Target -->
+		<target xsi:type="Debugger" name="debuggerTarget"
+				layout="[${level}] [${threadid}] ${logger}: ${message}" />
+
+		<!-- Blackhole for Microsoft logs -->
+		<target xsi:type="Null" name="blackhole" />
+	</targets>
+
+	<!-- rules to map from logger name to target -->
+	<rules>
+		<!-- BlackHole hosting noise -->
+		<logger name="Microsoft.Hosting.Lifetime*" minlevel="Info" writeTo="blackhole" final="true" />
+		<logger name="Microsoft.*" minlevel="Warn" writeTo="blackhole" final="true" />
+		<logger name="System.*" minlevel="Warn" writeTo="blackhole" final="true" />
+
+		<!-- Skip non-critical Microsoft logs -->
+		<logger name="Microsoft.*" maxlevel="Info" final="true" />
+		<logger name="System.Net.Http.*" maxlevel="Info" final="true" />
+
+		<!-- Hierarchical Application logs -->
+		<!-- Error file gets Error and Fatal only -->
+		<logger name="*" minlevel="Error" writeTo="appErrorFile" />
+
+		<!-- Info file gets Info, Warn, Error, Fatal -->
+		<logger name="*" minlevel="Info" writeTo="appInfoFile" />
+
+		<!-- Debug file gets Debug, Info, Warn, Error, Fatal -->
+		<logger name="*" minlevel="Debug" writeTo="appDebugFile" />
+
+		<!-- Trace file gets everything: Trace, Debug, Info, Warn, Error, Fatal -->
+		<logger name="*" minlevel="Trace" writeTo="appTraceFile" />
+
+		<!-- Development console (enabled automatically in development) -->
+		<logger name="*" minlevel="Debug" writeTo="consoleTarget" />
+
+		<!-- Debug output (enabled via code when debugger attached) -->
+		<logger name="*" minlevel="Trace" writeTo="debuggerTarget" enabled="true" />
+	</rules>
+</nlog>
