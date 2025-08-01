@@ -1,4 +1,5 @@
-﻿using SpotifyToM3U.MVVM.Model;
+﻿using NLog;
+using SpotifyToM3U.MVVM.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +17,8 @@ namespace SpotifyToM3U.Core
 
     public static class ComprehensiveTrackMatcher
     {
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(ComprehensiveTrackMatcher));
+
         private static readonly Dictionary<string, string[]> CommonWords = new()
         {
             ["noise"] = new[] { "official", "video", "audio", "lyric", "hd", "hq", "version", "edit", "extended", "radio" },
@@ -29,8 +32,21 @@ namespace SpotifyToM3U.Core
         /// </summary>
         public static TrackMatchResult? FindBestMatch(Track spotifyTrack, IEnumerable<AudioFile> audioFiles)
         {
+            _logger.Debug($"Searching for best match for track: {spotifyTrack.Title} by {spotifyTrack.Artists}");
+
             List<TrackMatchResult> allMatches = FindAllMatches(spotifyTrack, audioFiles);
-            return allMatches.FirstOrDefault();
+            TrackMatchResult? bestMatch = allMatches.FirstOrDefault();
+
+            if (bestMatch != null)
+            {
+                _logger.Info($"Found match for '{spotifyTrack.Title}': {bestMatch.AudioFile.Title} (Confidence: {bestMatch.Confidence:P1})");
+            }
+            else
+            {
+                _logger.Debug($"No suitable match found for track: {spotifyTrack.Title}");
+            }
+
+            return bestMatch;
         }
 
         /// <summary>

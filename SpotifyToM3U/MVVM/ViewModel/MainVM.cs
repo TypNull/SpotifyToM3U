@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using NLog;
 using SpotifyToM3U.Core;
 using System;
 using System.ComponentModel;
@@ -13,9 +14,12 @@ namespace SpotifyToM3U.MVVM.ViewModel
     {
         #region Fields
 
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(MainVM));
+
         private readonly LibraryVM _libraryVM;
         private readonly SpotifyVM _spotifyVM;
         private readonly ExportVM _exportVM;
+        private readonly IUserSettingsService _userSettingsService;
 
         #endregion
 
@@ -33,6 +37,28 @@ namespace SpotifyToM3U.MVVM.ViewModel
         [ObservableProperty]
         private TaskbarItemProgressState _taskbarState = TaskbarItemProgressState.None;
 
+        [ObservableProperty]
+        private bool _showDetailedLoggingControl = false;
+
+        /// <summary>
+        /// Gets or sets the detailed logging state.
+        /// Automatically syncs with UserSettingsService.
+        /// The UI control for this is hidden by default and shown with Ctrl+L to avoid clutter.
+        /// </summary>
+        public bool DetailedLogging
+        {
+            get => _userSettingsService.DetailedLogging;
+            set
+            {
+                if (_userSettingsService.DetailedLogging != value)
+                {
+                    _userSettingsService.DetailedLogging = value;
+                    OnPropertyChanged();
+                    _logger.Debug($"DetailedLogging property updated to: {value}");
+                }
+            }
+        }
+
         public string CurrentName => Navigation.CurrentView?.GetType().Name ?? "LibraryVM";
 
         #endregion
@@ -41,15 +67,32 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         public MainVM(INavigationService navigation) : base(navigation)
         {
-            // Get view models from DI container
-            _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
-            _spotifyVM = App.Current.ServiceProvider.GetRequiredService<SpotifyVM>();
-            _exportVM = App.Current.ServiceProvider.GetRequiredService<ExportVM>();
+            _logger.Debug("Initializing MainVM");
 
-            // Wire up event handlers
-            Navigation.PropertyChanged += NavigationService_PropertyChanged;
-            _libraryVM.PropertyChanged += LibraryVM_PropertyChanged;
-            _spotifyVM.PropertyChanged += SpotifyVM_PropertyChanged;
+            try
+            {
+                // Get view models from DI container
+                _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
+                _spotifyVM = App.Current.ServiceProvider.GetRequiredService<SpotifyVM>();
+                _exportVM = App.Current.ServiceProvider.GetRequiredService<ExportVM>();
+                _userSettingsService = App.Current.ServiceProvider.GetRequiredService<IUserSettingsService>();
+
+                // Wire up event handlers
+                Navigation.PropertyChanged += NavigationService_PropertyChanged;
+                _libraryVM.PropertyChanged += LibraryVM_PropertyChanged;
+                _spotifyVM.PropertyChanged += SpotifyVM_PropertyChanged;
+                _userSettingsService.DetailedLoggingChanged += UserSettings_DetailedLoggingChanged;
+
+                // Initialize detailed logging setting
+                OnPropertyChanged(nameof(DetailedLogging));
+
+                _logger.Info("MainVM initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to initialize MainVM");
+                throw;
+            }
         }
 
         #endregion
@@ -59,6 +102,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
         [RelayCommand]
         private async Task ChangeViewAsync(string viewName)
         {
+            _logger.Debug($"Changing view to: {viewName}");
+
             try
             {
                 Type? targetType = Type.GetType($"SpotifyToM3U.MVVM.ViewModel.{viewName}");
@@ -68,11 +113,30 @@ namespace SpotifyToM3U.MVVM.ViewModel
                     await Task.Delay(50);
                     Navigation.NavigateTo(targetType);
                     OnPropertyChanged(nameof(CurrentName));
+
+                    _logger.Info($"Successfully navigated to view: {viewName}");
+                }
+                else
+                {
+                    _logger.Warn($"View type not found: {viewName}");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error changing view: {ex.Message}");
+                _logger.Error(ex, $"Failed to change view to: {viewName}");
+            }
+        }
+
+        [RelayCommand]
+        private void ToggleDetailedLoggingVisibility()
+        {
+            ShowDetailedLoggingControl = !ShowDetailedLoggingControl;
+            _logger.Debug($"Detailed logging control visibility toggled: {(ShowDetailedLoggingControl ? "Visible" : "Hidden")}");
+            
+            // Optionally show a brief notification to the user about the feature
+            if (ShowDetailedLoggingControl)
+            {
+                _logger.Info("Detailed logging control is now visible. Use this for troubleshooting.");
             }
         }
 
@@ -121,6 +185,12 @@ namespace SpotifyToM3U.MVVM.ViewModel
                     EnableExport = _spotifyVM.IsNext;
                     break;
             }
+        }
+
+        private void UserSettings_DetailedLoggingChanged(object? sender, bool detailedLogging)
+        {
+            OnPropertyChanged(nameof(DetailedLogging));
+            _logger.Debug($"DetailedLogging changed via UserSettingsService: {detailedLogging}");
         }
 
         #endregion

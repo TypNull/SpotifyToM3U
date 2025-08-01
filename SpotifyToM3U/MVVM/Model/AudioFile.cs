@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
+using NLog;
+using SpotifyToM3U.Core;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,12 +10,15 @@ namespace SpotifyToM3U.MVVM.Model
 {
     public partial class AudioFile : ObservableObject
     {
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(AudioFile));
+
         public AudioFile() { }
 
         public AudioFile(string location)
         {
             Location = location;
-            Tags = new List<int>();
+            Tags = [];
+
             try
             {
                 TagLib.File file = TagLib.File.Create(Location);
@@ -29,14 +34,20 @@ namespace SpotifyToM3U.MVVM.Model
                 {
                     Extension = location.Substring(index + 1).ToUpper();
                 }
-            }
-            catch (TagLib.UnsupportedFormatException)
-            {
 
+                _logger.Trace($"Successfully loaded audio file: {location} - Title: {_title}, Artist: {string.Join(", ", _artists)}");
             }
-            catch (TagLib.CorruptFileException)
+            catch (TagLib.UnsupportedFormatException ex)
             {
-
+                _logger.Debug($"Unsupported audio format: {location} - {ex.Message}");
+            }
+            catch (TagLib.CorruptFileException ex)
+            {
+                _logger.Warn($"Corrupt audio file detected: {location} - {ex.Message}");
+            }
+            catch (System.Exception ex)
+            {
+                _logger.Error(ex, $"Error loading audio file: {location}");
             }
         }
 

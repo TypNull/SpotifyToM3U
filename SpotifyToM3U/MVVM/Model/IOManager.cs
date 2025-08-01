@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using NLog;
+using SpotifyToM3U.Core;
 using SpotifyToM3U.MVVM.ViewModel;
 using System;
 using System.Collections.Generic;
@@ -13,6 +15,8 @@ namespace SpotifyToM3U.MVVM.Model
 {
     internal class IOManager
     {
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(IOManager));
+
         private LibraryVM _libraryVM;
         private SpotifyVM _spotifyVM;
         private ExportVM _exportVM;
@@ -22,12 +26,24 @@ namespace SpotifyToM3U.MVVM.Model
 
         public IOManager()
         {
+            _logger.Debug("Initializing IOManager");
 
-            _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
-            _spotifyVM = App.Current.ServiceProvider.GetRequiredService<SpotifyVM>();
-            _exportVM = App.Current.ServiceProvider.GetRequiredService<ExportVM>();
-            LoadAudioFilesData();
-            _libraryVM.AudioFilesModifified += OnAudioFilesModifified;
+            try
+            {
+                _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
+                _spotifyVM = App.Current.ServiceProvider.GetRequiredService<SpotifyVM>();
+                _exportVM = App.Current.ServiceProvider.GetRequiredService<ExportVM>();
+
+                LoadAudioFilesData();
+                _libraryVM.AudioFilesModifified += OnAudioFilesModifified;
+
+                _logger.Info($"IOManager initialized successfully. Save directory: {SaveDirectory}");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to initialize IOManager");
+                throw;
+            }
         }
 
         /// <summary>
@@ -110,37 +126,77 @@ namespace SpotifyToM3U.MVVM.Model
 
         private void LoadAudioFilesData()
         {
-            if (!File.Exists(AudioSaveFilePath)) return;
-            XmlSerializer serializer = new(typeof(AudioFileCollection));
-            using TextReader reader = new StreamReader(AudioSaveFilePath);
-            _libraryVM.AudioFiles = (serializer.Deserialize(reader) as AudioFileCollection) ?? new();
-            serializer = new(typeof(string[]));
+            _logger.Debug("Loading audio files data from disk");
 
-            BindingOperations.EnableCollectionSynchronization(_libraryVM.AudioFiles, new object());
-            if (_libraryVM.AudioFiles.Any())
-                _libraryVM.IsNext = true;
+            try
+            {
+                if (!File.Exists(AudioSaveFilePath))
+                {
+                    _logger.Info("No existing audio files data found, starting with empty collection");
+                    return;
+                }
 
-            if (!File.Exists(SettingsSaveFilePath)) return;
-            _libraryVM.RootPathes = new();
-            using TextReader dirReader = new StreamReader(SettingsSaveFilePath);
-            string[] list = (serializer.Deserialize(dirReader) as string[]) ?? Array.Empty<string>();
-            Array.ForEach(list, (x) => _libraryVM.RootPathes.Add(x));
-            _exportVM.LibraryVM_AudioFilesModifified(this, null!);
+                XmlSerializer serializer = new(typeof(AudioFileCollection));
+                using TextReader reader = new StreamReader(AudioSaveFilePath);
+                _libraryVM.AudioFiles = (serializer.Deserialize(reader) as AudioFileCollection) ?? new();
+                serializer = new(typeof(string[]));
 
+                BindingOperations.EnableCollectionSynchronization(_libraryVM.AudioFiles, new object());
+                if (_libraryVM.AudioFiles.Any())
+                {
+                    _libraryVM.IsNext = true;
+                    _logger.Info($"Loaded {_libraryVM.AudioFiles.Count} audio files from cache");
+                }
+
+                if (!File.Exists(SettingsSaveFilePath))
+                {
+                    _logger.Debug("No settings file found, using defaults");
+                    return;
+                }
+
+                _libraryVM.RootPathes = new();
+                using TextReader dirReader = new StreamReader(SettingsSaveFilePath);
+                string[] list = (serializer.Deserialize(dirReader) as string[]) ?? Array.Empty<string>();
+                Array.ForEach(list, (x) => _libraryVM.RootPathes.Add(x));
+                _exportVM.LibraryVM_AudioFilesModifified(this, null!);
+
+                _logger.Info($"Loaded {list.Length} root paths from settings");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to load audio files data from disk");
+                // Continue with empty collections on error
+                _libraryVM.AudioFiles ??= new AudioFileCollection();
+                _libraryVM.RootPathes ??= new();
+            }
         }
 
         private void SaveAudioFilesData()
         {
+            _logger.Debug("Saving audio files data to disk");
 
-            if (!Directory.Exists(SaveDirectory))
-                Directory.CreateDirectory(SaveDirectory);
+            try
+            {
+                if (!Directory.Exists(SaveDirectory))
+                {
+                    Directory.CreateDirectory(SaveDirectory);
+                    _logger.Debug($"Created save directory: {SaveDirectory}");
+                }
 
-            XmlSerializer serializer = new(typeof(AudioFileCollection));
-            using TextWriter writer = new StreamWriter(AudioSaveFilePath);
-            serializer.Serialize(writer, _libraryVM.AudioFiles);
-            serializer = new(typeof(string[]));
-            using TextWriter dirWriter = new StreamWriter(SettingsSaveFilePath);
-            serializer.Serialize(dirWriter, _libraryVM.RootPathes.ToArray());
+                XmlSerializer serializer = new(typeof(AudioFileCollection));
+                using TextWriter writer = new StreamWriter(AudioSaveFilePath);
+                serializer.Serialize(writer, _libraryVM.AudioFiles);
+
+                serializer = new(typeof(string[]));
+                using TextWriter dirWriter = new StreamWriter(SettingsSaveFilePath);
+                serializer.Serialize(dirWriter, _libraryVM.RootPathes.ToArray());
+
+                _logger.Info($"Successfully saved {_libraryVM.AudioFiles.Count} audio files and {_libraryVM.RootPathes.Count} root paths");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to save audio files data to disk");
+            }
         }
     }
 }

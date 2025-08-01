@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NLog;
 using SpotifyToM3U.Core;
 using System;
 using System.Diagnostics;
@@ -13,6 +14,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
 {
     public partial class SpotifySetupVM : ObservableObject
     {
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(SpotifySetupVM));
         private readonly string _configPath;
 
         [ObservableProperty]
@@ -36,6 +38,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         public SpotifySetupVM()
         {
+            _logger.Debug("Initializing SpotifySetupVM");
+
             _configPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "SpotifyToM3U",
@@ -43,11 +47,14 @@ namespace SpotifyToM3U.MVVM.ViewModel
             );
 
             LoadExistingConfiguration();
+            _logger.Info($"SpotifySetupVM initialized. Config path: {_configPath}");
         }
 
         [RelayCommand]
         private void OpenDashboard()
         {
+            _logger.Debug("Opening Spotify Developer Dashboard");
+
             try
             {
                 Process.Start(new ProcessStartInfo
@@ -56,47 +63,56 @@ namespace SpotifyToM3U.MVVM.ViewModel
                     UseShellExecute = true
                 });
                 StatusMessage = "Browser opened. Create your app and come back with the credentials.";
+                _logger.Info("Successfully opened Spotify Developer Dashboard in browser");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Failed to open browser: {ex.Message}";
-                Debug.WriteLine($"Failed to open browser: {ex.Message}");
+                _logger.Error(ex, "Failed to open Spotify Developer Dashboard");
             }
         }
 
         [RelayCommand]
         private void CopyHttpsRedirectUri()
         {
+            _logger.Debug("Copying HTTPS redirect URI to clipboard");
+
             try
             {
                 Clipboard.SetText("https://localhost:5000/callback");
                 StatusMessage = "HTTPS redirect URI copied to clipboard! Use this when creating your app.";
+                _logger.Info("HTTPS redirect URI copied to clipboard successfully");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Failed to copy to clipboard: {ex.Message}";
-                Debug.WriteLine($"Failed to copy to clipboard: {ex.Message}");
+                _logger.Error(ex, "Failed to copy HTTPS redirect URI to clipboard");
             }
         }
 
         [RelayCommand]
         private void CopyRedirectUri()
         {
+            _logger.Debug("Copying HTTP redirect URI to clipboard");
+
             try
             {
                 Clipboard.SetText("http://localhost:5000/callback");
                 StatusMessage = "HTTP redirect URI copied to clipboard! Edit your app to use this final URI.";
+                _logger.Info("HTTP redirect URI copied to clipboard successfully");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Failed to copy to clipboard: {ex.Message}";
-                Debug.WriteLine($"Failed to copy to clipboard: {ex.Message}");
+                _logger.Error(ex, "Failed to copy HTTP redirect URI to clipboard");
             }
         }
 
         [RelayCommand]
         private async Task SaveConfigurationAsync()
         {
+            _logger.Info("Starting Spotify configuration save process");
+
             try
             {
                 IsSaving = true;
@@ -107,8 +123,11 @@ namespace SpotifyToM3U.MVVM.ViewModel
                 if (!ValidateInputs())
                 {
                     HasValidationErrors = true;
+                    _logger.Warn("Configuration validation failed");
                     return;
                 }
+
+                _logger.Debug("Creating Spotify configuration object");
 
                 // Create configuration
                 SpotifyConfig config = new()
@@ -130,6 +149,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
                 ConfigurationSaved = true;
                 StatusMessage = "Configuration saved successfully!";
+                _logger.Info($"Spotify configuration saved successfully to: {_configPath}");
 
                 // Close window after a short delay
                 await Task.Delay(1000);
@@ -139,7 +159,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
             {
                 StatusMessage = $"Failed to save configuration: {ex.Message}";
                 HasValidationErrors = true;
-                Debug.WriteLine($"Failed to save configuration: {ex.Message}");
+                _logger.Error(ex, "Failed to save Spotify configuration");
             }
             finally
             {
@@ -150,6 +170,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
         [RelayCommand]
         private void Cancel()
         {
+            _logger.Debug("Spotify setup cancelled by user");
             ConfigurationSaved = false;
             RequestClose?.Invoke(this, EventArgs.Empty);
         }
@@ -190,10 +211,14 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         private void LoadExistingConfiguration()
         {
+            _logger.Debug("Attempting to load existing Spotify configuration");
+
             try
             {
                 if (File.Exists(_configPath))
                 {
+                    _logger.Debug($"Found existing config file: {_configPath}");
+
                     string json = File.ReadAllText(_configPath);
                     SpotifyConfig? config = JsonSerializer.Deserialize<SpotifyConfig>(json);
 
@@ -202,32 +227,50 @@ namespace SpotifyToM3U.MVVM.ViewModel
                         if (!string.IsNullOrEmpty(config.ClientId) && config.ClientId != "your_client_id_here")
                         {
                             ClientId = config.ClientId;
+                            _logger.Debug("Loaded existing Client ID");
                         }
 
                         if (!string.IsNullOrEmpty(config.ClientSecret) && config.ClientSecret != "your_client_secret_here")
                         {
                             ClientSecret = config.ClientSecret;
+                            _logger.Debug("Loaded existing Client Secret");
                         }
 
                         if (!string.IsNullOrEmpty(ClientId) && !string.IsNullOrEmpty(ClientSecret))
                         {
                             StatusMessage = "Existing configuration loaded. You can update the credentials if needed.";
+                            _logger.Info("Existing Spotify configuration loaded successfully");
                         }
                     }
+                }
+                else
+                {
+                    _logger.Debug("No existing configuration file found");
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error loading existing configuration: {ex.Message}";
-                Debug.WriteLine($"Error loading configuration: {ex.Message}");
+                _logger.Error(ex, "Error loading existing Spotify configuration");
             }
         }
 
         private async Task SaveConfigAsync(SpotifyConfig config)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_configPath)!);
-            string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(_configPath, json);
+            _logger.Debug($"Saving Spotify configuration to: {_configPath}");
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_configPath)!);
+                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(_configPath, json);
+                _logger.Debug("Spotify configuration file written successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, $"Failed to save configuration to: {_configPath}");
+                throw;
+            }
         }
     }
 }

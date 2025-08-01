@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using NLog;
 using Requests;
 using SpotifyToM3U.Core;
 using SpotifyToM3U.MVVM.Model;
@@ -20,6 +21,12 @@ namespace SpotifyToM3U.MVVM.ViewModel
 {
     internal partial class LibraryVM : ViewModelObject
     {
+        #region Fields
+
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(LibraryVM));
+
+        #endregion
+
         #region Properties
 
         public AudioFileCollection AudioFiles
@@ -70,8 +77,20 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         public LibraryVM(INavigationService navigation) : base(navigation)
         {
-            BindingOperations.EnableCollectionSynchronization(AudioFiles, new object());
-            StatusText = $"Audio Library - {AudioFiles.Count} files loaded";
+            _logger.Debug("Initializing LibraryVM");
+
+            try
+            {
+                BindingOperations.EnableCollectionSynchronization(AudioFiles, new object());
+                StatusText = $"Audio Library - {AudioFiles.Count} files loaded";
+
+                _logger.Info("LibraryVM initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to initialize LibraryVM");
+                throw;
+            }
         }
 
         #endregion
@@ -81,43 +100,86 @@ namespace SpotifyToM3U.MVVM.ViewModel
         [RelayCommand]
         private async Task AddFolderAsync()
         {
-            View.Windows.AddFolderWindow addFolderWindow = App.Current.ServiceProvider.GetRequiredService<View.Windows.AddFolderWindow>();
-            AddFolderVM vm = (AddFolderVM)addFolderWindow.DataContext;
+            _logger.Debug("AddFolderAsync command initiated");
 
-            addFolderWindow.ShowDialog();
-            if (!vm.Result) return;
+            try
+            {
+                View.Windows.AddFolderWindow addFolderWindow = App.Current.ServiceProvider.GetRequiredService<View.Windows.AddFolderWindow>();
+                AddFolderVM vm = (AddFolderVM)addFolderWindow.DataContext;
 
-            await ProcessFolderAsync(vm.Path, vm.Extensions, vm.ScanSubdirectories);
+                addFolderWindow.ShowDialog();
+                if (!vm.Result)
+                {
+                    _logger.Debug("AddFolder dialog cancelled by user");
+                    return;
+                }
+
+                _logger.Info($"Adding folder: {vm.Path} (Extensions: {vm.Extensions}, Subdirectories: {vm.ScanSubdirectories})");
+                await ProcessFolderAsync(vm.Path, vm.Extensions, vm.ScanSubdirectories);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in AddFolderAsync command");
+                throw;
+            }
         }
 
         [RelayCommand]
         private async Task AddFileAsync()
         {
-            Microsoft.Win32.OpenFileDialog fileDialog = new()
+            _logger.Debug("AddFileAsync command initiated");
+
+            try
             {
-                Multiselect = true,
-                Title = "Select Audio Files",
-                Filter = "Audio Files (*.MP3, *.FLAC, *.WMA, *.WAV, *.AAC, *.M4A)|*.MP3;*.FLAC;*.aac;*m4a;*.WMA;*.WAV|All Files (*.*)|*.*"
-            };
+                Microsoft.Win32.OpenFileDialog fileDialog = new()
+                {
+                    Multiselect = true,
+                    Title = "Select Audio Files",
+                    Filter = "Audio Files (*.MP3, *.FLAC, *.WMA, *.WAV, *.AAC, *.M4A)|*.MP3;*.FLAC;*.aac;*m4a;*.WMA;*.WAV|All Files (*.*)|*.*"
+                };
 
-            if (fileDialog.ShowDialog() != true) return;
+                if (fileDialog.ShowDialog() != true)
+                {
+                    _logger.Debug("AddFile dialog cancelled by user");
+                    return;
+                }
 
-            await ProcessFilesAsync(fileDialog.FileNames);
+                _logger.Info($"Adding {fileDialog.FileNames.Length} files");
+                await ProcessFilesAsync(fileDialog.FileNames);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error in AddFileAsync command");
+                throw;
+            }
         }
 
         [RelayCommand]
         private void Clear()
         {
-            _cancellationTokenSource?.Cancel();
+            _logger.Debug("Clear command initiated");
 
-            AudioFiles.Clear();
-            IsNext = false;
-            TotalFilesCount = 0;
-            ProcessedFilesCount = 0;
-            StatusText = "Library cleared";
+            try
+            {
+                _cancellationTokenSource?.Cancel();
 
-            while (RootPathes.TryTake(out _)) { }
-            AudioFilesModifified?.Invoke(this, EventArgs.Empty);
+                int clearedCount = AudioFiles.Count;
+                AudioFiles.Clear();
+                IsNext = false;
+                TotalFilesCount = 0;
+                ProcessedFilesCount = 0;
+                StatusText = "Library cleared";
+
+                while (RootPathes.TryTake(out _)) { }
+                AudioFilesModifified?.Invoke(this, EventArgs.Empty);
+
+                _logger.Info($"Library cleared - removed {clearedCount} files");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error clearing library");
+                throw;
+            }
         }
 
         [RelayCommand]
@@ -136,6 +198,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         private async Task ProcessFolderAsync(string folderPath, string extensions, bool scanSubdirectories)
         {
+            _logger.Debug($"Starting folder processing: {folderPath}");
+
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource = new CancellationTokenSource();
             CancellationToken token = _cancellationTokenSource.Token;
@@ -150,6 +214,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
                                    .Select(x => x.ToLower().Trim())
                                    .ToArray();
 
+                _logger.Debug($"Processing extensions: [{string.Join(", ", exts)}], Subdirectories: {scanSubdirectories}");
+
                 int initialCount = AudioFiles.Count;
                 RootPathes.Add(folderPath);
 
@@ -161,6 +227,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
                 if (!token.IsCancellationRequested)
                 {
+                    _logger.Info($"Folder scan completed successfully - added {addedFiles} files from {folderPath}");
                     MessageBox.Show($"{addedFiles} files added successfully!", "Scan Complete",
                                   MessageBoxButton.OK, MessageBoxImage.Information);
                 }
@@ -170,10 +237,12 @@ namespace SpotifyToM3U.MVVM.ViewModel
             catch (OperationCanceledException)
             {
                 StatusText = "Scan cancelled";
+                _logger.Info($"Folder scan cancelled by user: {folderPath}");
             }
             catch (Exception ex)
             {
                 StatusText = $"Error: {ex.Message}";
+                _logger.Error(ex, $"Error scanning folder: {folderPath}");
                 MessageBox.Show($"Error scanning folder: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -181,6 +250,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
             {
                 ShowProgressBar = false;
                 ResetProgress();
+                _logger.Debug($"Folder processing completed: {folderPath}");
             }
         }
 

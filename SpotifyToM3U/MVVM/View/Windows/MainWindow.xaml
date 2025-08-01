@@ -16,15 +16,20 @@
         Icon="\Recources\Images\spotify_icon.png">
 
     <Window.InputBindings>
+        <!-- Library shortcuts -->
         <KeyBinding Key="O"
                     Modifiers="Ctrl"
                     Command="{Binding LibraryAddFolderCommand}" />
         <KeyBinding Key="O"
                     Modifiers="Ctrl+Shift"
                     Command="{Binding LibraryAddFileCommand}" />
+        
+        <!-- Export shortcut -->
         <KeyBinding Key="E"
                     Modifiers="Ctrl"
                     Command="{Binding ExportCommand}" />
+        
+        <!-- Navigation shortcuts -->
         <KeyBinding Key="F5"
                     Command="{Binding RefreshSpotifyCommand}" />
         <KeyBinding Key="D1"
@@ -39,8 +44,14 @@
                     Modifiers="Ctrl"
                     Command="{Binding ChangeViewCommand}"
                     CommandParameter="ExportVM" />
+        
+        <!-- Utility shortcuts -->
         <KeyBinding Key="Escape"
                     Command="{Binding CancelCommand}" />
+        <!-- Hidden feature: Toggle detailed logging control visibility -->
+        <KeyBinding Key="L"
+                    Modifiers="Ctrl"
+                    Command="{Binding ToggleDetailedLoggingVisibilityCommand}" />
     </Window.InputBindings>
 
     <Window.TaskbarItemInfo>
@@ -171,24 +182,42 @@
                 BorderBrush="{StaticResource NeutralGrayBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="20,15">
-            <StackPanel Orientation="Horizontal">
-                <RadioButton Content="Library"
-                             ext:MarkupExtensions.Icon="\Recources\Images\library.png"
-                             CommandParameter="LibraryVM"
-                             Style="{StaticResource ModernNavigationButton}" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                
+                <!-- Navigation Buttons -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <RadioButton Content="Library"
+                                 ext:MarkupExtensions.Icon="\Recources\Images\library.png"
+                                 CommandParameter="LibraryVM"
+                                 Style="{StaticResource ModernNavigationButton}" />
 
-                <RadioButton Content="Spotify"
-                             ext:MarkupExtensions.Icon="\Recources\Images\spotify.png"
-                             CommandParameter="SpotifyVM"
-                             IsEnabled="{Binding EnableSpotify}"
-                             Style="{StaticResource ModernNavigationButton}" />
+                    <RadioButton Content="Spotify"
+                                 ext:MarkupExtensions.Icon="\Recources\Images\spotify.png"
+                                 CommandParameter="SpotifyVM"
+                                 IsEnabled="{Binding EnableSpotify}"
+                                 Style="{StaticResource ModernNavigationButton}" />
 
-                <RadioButton Content="Export"
-                             ext:MarkupExtensions.Icon="\Recources\Images\export.png"
-                             CommandParameter="ExportVM"
-                             IsEnabled="{Binding EnableExport}"
-                             Style="{StaticResource ModernNavigationButton}" />
-            </StackPanel>
+                    <RadioButton Content="Export"
+                                 ext:MarkupExtensions.Icon="\Recources\Images\export.png"
+                                 CommandParameter="ExportVM"
+                                 IsEnabled="{Binding EnableExport}"
+                                 Style="{StaticResource ModernNavigationButton}" />
+                </StackPanel>
+                
+                <!-- Detailed Logging Toggle (Hidden by default, shown with Ctrl+L) -->
+                <CheckBox Grid.Column="2"
+                          Content="Detailed Logging"
+                          IsChecked="{Binding DetailedLogging}"
+                          Style="{StaticResource CompactToggleButton}"
+                          VerticalAlignment="Center"
+                          Visibility="{Binding ShowDetailedLoggingControl, Converter={StaticResource BoolToVis}}"
+                          ToolTip="Enable detailed logging for troubleshooting (Press Ctrl+L to toggle visibility)" />
+            </Grid>
         </Border>
 
         <!-- Content Area -->

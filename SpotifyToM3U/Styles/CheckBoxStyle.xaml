@@ -173,4 +173,168 @@
         </Setter>
     </Style>
 
+    <!-- Modern Toggle Button Style for Settings -->
+    <Style x:Key="ModernToggleButton" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource NeutralDarkGrayBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Toggle Switch -->
+                        <Border x:Name="ToggleBackground"
+                                Grid.Column="0"
+                                Width="44"
+                                Height="22"
+                                Background="{StaticResource NeutralGrayBrush}"
+                                BorderBrush="{StaticResource NeutralMediumGrayBrush}"
+                                BorderThickness="1"
+                                CornerRadius="11"
+                                VerticalAlignment="Center">
+                            <Border x:Name="ToggleThumb"
+                                    Width="18"
+                                    Height="18"
+                                    Background="{StaticResource NeutralWhiteBrush}"
+                                    BorderBrush="{StaticResource NeutralMediumGrayBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="9"
+                                    HorizontalAlignment="Left"
+                                    Margin="2">
+                                <Border.RenderTransform>
+                                    <TranslateTransform x:Name="ThumbTransform" X="0" />
+                                </Border.RenderTransform>
+                            </Border>
+                        </Border>
+                        
+                        <!-- Content Text -->
+                        <ContentPresenter Grid.Column="2"
+                                          x:Name="ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left" />
+                    </Grid>
+                    
+                    <ControlTemplate.Triggers>
+                        <!-- Checked State -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="ToggleBackground" Property="Background" Value="{StaticResource PrimaryGreenBrush}" />
+                            <Setter TargetName="ToggleBackground" Property="BorderBrush" Value="{StaticResource PrimaryGreenDarkBrush}" />
+                            <Setter TargetName="ToggleThumb" Property="Background" Value="{StaticResource NeutralWhiteBrush}" />
+                            <Setter TargetName="ToggleThumb" Property="BorderBrush" Value="{StaticResource PrimaryGreenDarkBrush}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                                       Storyboard.TargetProperty="X"
+                                                       To="20"
+                                                       Duration="0:0:0.2">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ThumbTransform"
+                                                       Storyboard.TargetProperty="X"
+                                                       To="0"
+                                                       Duration="0:0:0.2">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        
+                        <!-- Hover State -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ToggleBackground" Property="Opacity" Value="0.8" />
+                        </Trigger>
+                        
+                        <!-- Disabled State -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Compact Modern Toggle for UI Controls -->
+    <Style x:Key="CompactToggleButton" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{StaticResource NeutralDarkGrayBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="RootBorder"
+                            Background="Transparent"
+                            BorderBrush="{StaticResource NeutralGrayBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="8,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="6" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- Toggle Indicator -->
+                            <Ellipse x:Name="ToggleIndicator"
+                                     Grid.Column="0"
+                                     Width="8"
+                                     Height="8"
+                                     Fill="{StaticResource NeutralMediumGrayBrush}"
+                                     VerticalAlignment="Center" />
+                            
+                            <!-- Content Text -->
+                            <ContentPresenter Grid.Column="2"
+                                              Content="{TemplateBinding Content}"
+                                              VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    
+                    <ControlTemplate.Triggers>
+                        <!-- Checked State -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="RootBorder" Property="Background" Value="{StaticResource SelectedLightBrush}" />
+                            <Setter TargetName="RootBorder" Property="BorderBrush" Value="{StaticResource PrimaryGreenBrush}" />
+                            <Setter TargetName="ToggleIndicator" Property="Fill" Value="{StaticResource PrimaryGreenBrush}" />
+                        </Trigger>
+                        
+                        <!-- Hover State -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="RootBorder" Property="Background" Value="{StaticResource HoverLightBrush}" />
+                            <Setter TargetName="RootBorder" Property="BorderBrush" Value="{StaticResource PrimaryGreenLightBrush}" />
+                        </Trigger>
+                        
+                        <!-- Disabled State -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

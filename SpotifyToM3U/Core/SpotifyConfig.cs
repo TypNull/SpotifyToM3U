@@ -1,8 +1,8 @@
-﻿using SpotifyAPI.Web;
+﻿using NLog;
+using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -52,6 +52,8 @@ namespace SpotifyToM3U.Core
 
     public class SpotifyService : ISpotifyService
     {
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(SpotifyService));
+
         private SpotifyConfig _config;
         private readonly string _tokenFilePath;
         private SpotifyClient? _spotify;
@@ -70,12 +72,16 @@ namespace SpotifyToM3U.Core
 
         public SpotifyService()
         {
+            _logger.Debug("Initializing SpotifyService");
+
             _config = LoadConfig();
             _tokenFilePath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "SpotifyToM3U",
                 "spotify_token.json"
             );
+
+            _logger.Debug($"Token file path: {_tokenFilePath}");
         }
 
         public async Task InitializeAsync()
@@ -108,7 +114,7 @@ namespace SpotifyToM3U.Core
 
             try
             {
-                Debug.WriteLine("Starting Spotify service initialization...");
+                _logger.Info("Starting Spotify service initialization");
 
                 // Initialize public client for accessing public playlists
                 await InitializePublicClientAsync();
@@ -116,11 +122,11 @@ namespace SpotifyToM3U.Core
                 // Try to restore user authentication
                 bool authRestored = await TryLoadStoredTokenAsync();
 
-                Debug.WriteLine($"Spotify service initialization completed. Auth restored: {authRestored}");
+                _logger.Info($"Spotify service initialization completed. Auth restored: {authRestored}");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Initialization error: {ex.Message}");
+                _logger.Error(ex, "Spotify service initialization failed");
             }
             finally
             {
@@ -136,7 +142,7 @@ namespace SpotifyToM3U.Core
                 if (string.IsNullOrEmpty(_config.ClientId) || _config.ClientId == "your_client_id_here" ||
                     string.IsNullOrEmpty(_config.ClientSecret) || _config.ClientSecret == "your_client_secret_here")
                 {
-                    Debug.WriteLine("Spotify credentials not configured, public access disabled");
+                    _logger.Warn("Spotify credentials not configured, public access disabled");
                     return;
                 }
 
@@ -146,11 +152,11 @@ namespace SpotifyToM3U.Core
                 ClientCredentialsTokenResponse response = await new OAuthClient(config).RequestToken(request);
 
                 _publicSpotify = new SpotifyClient(config.WithToken(response.AccessToken));
-                Debug.WriteLine("Public Spotify client initialized successfully");
+                _logger.Info("Public Spotify client initialized successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Failed to initialize public Spotify client: {ex.Message}");
+                _logger.Error(ex, "Failed to initialize public Spotify client");
                 _publicSpotify = null;
             }
         }
@@ -172,7 +178,7 @@ namespace SpotifyToM3U.Core
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error loading config: {ex.Message}");
+                    _logger.Error(ex, "Error loading Spotify configuration, using defaults");
                     return new SpotifyConfig();
                 }
             }
@@ -199,12 +205,14 @@ namespace SpotifyToM3U.Core
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error saving config: {ex.Message}");
+                _logger.Error(ex, "Error saving Spotify configuration");
             }
         }
 
         public async Task<bool> AuthenticateAsync()
         {
+            _logger.Info("Starting Spotify authentication process");
+
             try
             {
                 await InitializeAsync(); // Ensure initialization is complete
@@ -248,7 +256,7 @@ namespace SpotifyToM3U.Core
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Authentication error: {ex.Message}");
+                _logger.Error(ex, "Authentication process failed");
                 await LogoutAsync();
                 throw;
             }
@@ -281,29 +289,30 @@ namespace SpotifyToM3U.Core
                 {
                     PrivateUser user = await _spotify.UserProfile.Current();
                     CurrentUserName = user.DisplayName ?? user.Id;
+                    _logger.Debug($"Retrieved user profile: {CurrentUserName}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Error getting user info: {ex.Message}");
+                    _logger.Warn(ex, "Could not retrieve user profile, using default name");
                     CurrentUserName = "Spotify User";
                 }
 
                 // Save token
                 await SaveTokenAsync(_currentToken);
 
-                Debug.WriteLine($"Authentication successful for user: {CurrentUserName}");
+                _logger.Info($"Authentication successful for user: {CurrentUserName}");
                 AuthenticationStateChanged?.Invoke(this, true);
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Token processing error: {ex.Message}");
+                _logger.Error(ex, "Token processing failed during authentication");
                 await LogoutAsync();
             }
         }
 
         private async Task OnErrorReceived(object sender, string error, string? state)
         {
-            Debug.WriteLine($"Authentication error: {error}");
+            _logger.Error($"Authentication error received: {error}");
             await _server!.Stop();
             AuthenticationStateChanged?.Invoke(this, false);
         }
@@ -314,30 +323,30 @@ namespace SpotifyToM3U.Core
             {
                 if (!File.Exists(_tokenFilePath))
                 {
-                    Debug.WriteLine("No stored token found");
+                    _logger.Debug("No stored token found");
                     return false;
                 }
 
-                Debug.WriteLine("Found stored token file, attempting to load...");
+                _logger.Debug("Found stored token file, attempting to load");
                 string json = await File.ReadAllTextAsync(_tokenFilePath);
 
                 _currentToken = JsonSerializer.Deserialize<SpotifyAuthToken>(json);
 
                 if (_currentToken == null)
                 {
-                    Debug.WriteLine("Failed to deserialize stored token");
+                    _logger.Warn("Failed to deserialize stored token");
                     return false;
                 }
 
-                Debug.WriteLine($"Token IsExpired: {_currentToken.IsExpired}");
+                _logger.Debug($"Token IsExpired: {_currentToken.IsExpired}");
 
                 if (_currentToken.IsExpired)
                 {
-                    Debug.WriteLine("Stored token is expired, attempting refresh");
+                    _logger.Debug("Stored token is expired, attempting refresh");
                     return await TryRefreshTokenAsync();
                 }
 
-                Debug.WriteLine("Token appears valid, testing with Spotify API...");
+                _logger.Debug("Token appears valid, testing with Spotify API");
 
                 // Create token response from stored token
                 AuthorizationCodeTokenResponse tokenResponse = new()
@@ -358,20 +367,20 @@ namespace SpotifyToM3U.Core
                 {
                     PrivateUser user = await _spotify.UserProfile.Current();
                     CurrentUserName = user.DisplayName ?? user.Id;
-                    Debug.WriteLine($"Successfully restored authentication for user: {CurrentUserName}");
+                    _logger.Info($"Successfully restored authentication for user: {CurrentUserName}");
                     AuthenticationStateChanged?.Invoke(this, true);
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Token validation failed: {ex.Message}");
+                    _logger.Warn(ex, "Token validation failed, attempting refresh");
                     // Try refreshing the token
                     return await TryRefreshTokenAsync();
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Token loading error: {ex.Message}");
+                _logger.Error(ex, "Failed to load stored token");
                 await LogoutAsync();
                 return false;
             }
@@ -383,11 +392,11 @@ namespace SpotifyToM3U.Core
             {
                 if (_currentToken?.RefreshToken == null)
                 {
-                    Debug.WriteLine("No refresh token available");
+                    _logger.Debug("No refresh token available");
                     return false;
                 }
 
-                Debug.WriteLine("Attempting to refresh token");
+                _logger.Debug("Attempting to refresh token");
 
                 AuthorizationCodeRefreshRequest refreshRequest = new(_config.ClientId, _config.ClientSecret, _currentToken.RefreshToken);
                 AuthorizationCodeRefreshResponse refreshResponse = await new OAuthClient().RequestToken(refreshRequest);
@@ -420,13 +429,13 @@ namespace SpotifyToM3U.Core
                 // Save the refreshed token
                 await SaveTokenAsync(_currentToken);
 
-                Debug.WriteLine($"Token refreshed successfully for user: {CurrentUserName}");
+                _logger.Info($"Token refreshed successfully for user: {CurrentUserName}");
                 AuthenticationStateChanged?.Invoke(this, true);
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Token refresh failed: {ex.Message}");
+                _logger.Error(ex, "Token refresh failed");
                 await LogoutAsync();
                 return false;
             }
@@ -440,11 +449,11 @@ namespace SpotifyToM3U.Core
                 Directory.CreateDirectory(directory);
                 string json = JsonSerializer.Serialize(token, new JsonSerializerOptions { WriteIndented = true });
                 await File.WriteAllTextAsync(_tokenFilePath, json);
-                Debug.WriteLine("Token saved successfully");
+                _logger.Debug("Token saved successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Token saving error: {ex.Message}");
+                _logger.Error(ex, "Failed to save token");
             }
         }
 
@@ -452,7 +461,7 @@ namespace SpotifyToM3U.Core
         {
             try
             {
-                Debug.WriteLine("Logging out...");
+                _logger.Info("Logging out user");
 
                 if (_server != null)
                 {
@@ -467,15 +476,15 @@ namespace SpotifyToM3U.Core
                 if (File.Exists(_tokenFilePath))
                 {
                     File.Delete(_tokenFilePath);
-                    Debug.WriteLine("Stored token deleted");
+                    _logger.Debug("Stored token deleted");
                 }
 
                 AuthenticationStateChanged?.Invoke(this, false);
-                Debug.WriteLine("Logout completed");
+                _logger.Info("Logout completed successfully");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Logout error: {ex.Message}");
+                _logger.Error(ex, "Error during logout process");
             }
         }
 
@@ -492,7 +501,7 @@ namespace SpotifyToM3U.Core
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error fetching user playlists: {ex.Message}");
+                _logger.Error(ex, "Failed to fetch user playlists");
                 throw;
             }
         }
@@ -512,7 +521,7 @@ namespace SpotifyToM3U.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error fetching playlist with authenticated client: {ex.Message}");
+                        _logger.Debug(ex, "Failed to fetch playlist with authenticated client, trying public client");
                         // Fall through to public client
                     }
                 }
@@ -526,7 +535,7 @@ namespace SpotifyToM3U.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error fetching playlist with public client: {ex.Message}");
+                        _logger.Error(ex, $"Failed to fetch playlist {playlistId} with public client");
                         throw new InvalidOperationException($"Cannot access playlist {playlistId}. It may be private or the playlist ID is invalid.", ex);
                     }
                 }
@@ -535,7 +544,7 @@ namespace SpotifyToM3U.Core
             }
             catch (Exception ex) when (!(ex is InvalidOperationException))
             {
-                Debug.WriteLine($"Error fetching playlist {playlistId}: {ex.Message}");
+                _logger.Error(ex, $"Unexpected error fetching playlist {playlistId}");
                 throw;
             }
         }
@@ -556,7 +565,7 @@ namespace SpotifyToM3U.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error fetching playlist tracks with authenticated client: {ex.Message}");
+                        _logger.Debug(ex, "Failed to fetch playlist tracks with authenticated client, trying public client");
                         // Fall through to public client
                     }
                 }
@@ -571,7 +580,7 @@ namespace SpotifyToM3U.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error fetching playlist tracks with public client: {ex.Message}");
+                        _logger.Error(ex, $"Failed to fetch tracks for playlist {playlistId} with public client");
                         throw new InvalidOperationException($"Cannot access tracks for playlist {playlistId}. It may be private or the playlist ID is invalid.", ex);
                     }
                 }
@@ -580,7 +589,7 @@ namespace SpotifyToM3U.Core
             }
             catch (Exception ex) when (!(ex is InvalidOperationException))
             {
-                Debug.WriteLine($"Error fetching playlist tracks {playlistId}: {ex.Message}");
+                _logger.Error(ex, $"Unexpected error fetching tracks for playlist {playlistId}");
                 throw;
             }
         }
@@ -600,7 +609,7 @@ namespace SpotifyToM3U.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error fetching track with authenticated client: {ex.Message}");
+                        _logger.Debug(ex, "Failed to fetch track with authenticated client, trying public client");
                         // Fall through to public client
                     }
                 }
@@ -614,17 +623,17 @@ namespace SpotifyToM3U.Core
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Error fetching track with public client: {ex.Message}");
+                        _logger.Debug(ex, $"Failed to fetch track {trackId} with public client");
                         return null;
                     }
                 }
 
-                Debug.WriteLine("No Spotify client available for track fetching");
+                _logger.Warn("No Spotify client available for track fetching");
                 return null;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Error fetching track {trackId}: {ex.Message}");
+                _logger.Error(ex, $"Unexpected error fetching track {trackId}");
                 return null;
             }
         }

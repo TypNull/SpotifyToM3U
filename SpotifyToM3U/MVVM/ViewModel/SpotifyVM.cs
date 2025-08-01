@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using NLog;
 using SpotifyAPI.Web;
 using SpotifyToM3U.Core;
 using SpotifyToM3U.MVVM.Model;
@@ -69,6 +70,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
     internal partial class SpotifyVM : ViewModelObject
     {
         #region Fields
+
+        private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(SpotifyVM));
 
         private readonly ISpotifyService _spotifyService;
         private readonly LibraryVM _libraryVM;
@@ -155,28 +158,44 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         public SpotifyVM(INavigationService navigation) : base(navigation)
         {
-            _spotifyService = App.Current.ServiceProvider.GetRequiredService<ISpotifyService>();
-            _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
+            _logger.Debug("Initializing SpotifyVM");
 
-            _spotifyService.AuthenticationStateChanged += OnAuthenticationStateChanged;
-            _libraryVM.AudioFilesModifified += LibraryVM_AudioFilesModified;
-            _libraryVM.PropertyChanged += LibraryVM_PropertyChanged;
-
-            BindingOperations.EnableCollectionSynchronization(PlaylistTracks, new object());
-            BindingOperations.EnableCollectionSynchronization(FilteredTracks, new object());
-            BindingOperations.EnableCollectionSynchronization(UserPlaylists, new object());
-
-            // Initialize authentication state
-            IsAuthenticated = _spotifyService.IsAuthenticated;
-            CurrentUser = _spotifyService.CurrentUserName;
-
-            if (IsAuthenticated)
+            try
             {
-                StatusMessage = $"Connected as {CurrentUser}";
-                _ = LoadUserPlaylistsAsync();
-            }
+                _spotifyService = App.Current.ServiceProvider.GetRequiredService<ISpotifyService>();
+                _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
 
-            UpdatePlaylistStats();
+                _spotifyService.AuthenticationStateChanged += OnAuthenticationStateChanged;
+                _libraryVM.AudioFilesModifified += LibraryVM_AudioFilesModified;
+                _libraryVM.PropertyChanged += LibraryVM_PropertyChanged;
+
+                BindingOperations.EnableCollectionSynchronization(PlaylistTracks, new object());
+                BindingOperations.EnableCollectionSynchronization(FilteredTracks, new object());
+                BindingOperations.EnableCollectionSynchronization(UserPlaylists, new object());
+
+                // Initialize authentication state
+                IsAuthenticated = _spotifyService.IsAuthenticated;
+                CurrentUser = _spotifyService.CurrentUserName;
+
+                if (IsAuthenticated)
+                {
+                    StatusMessage = $"Connected as {CurrentUser}";
+                    _ = LoadUserPlaylistsAsync();
+                    _logger.Info($"SpotifyVM initialized - already authenticated as {CurrentUser}");
+                }
+                else
+                {
+                    _logger.Debug("SpotifyVM initialized - not authenticated");
+                }
+
+                UpdatePlaylistStats();
+                _logger.Info("SpotifyVM initialization completed successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to initialize SpotifyVM");
+                throw;
+            }
         }
 
         #endregion
@@ -186,6 +205,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
         [RelayCommand]
         private async Task AuthenticateAsync()
         {
+            _logger.Debug("AuthenticateAsync command initiated");
+
             try
             {
                 IsLoading = true;
@@ -193,19 +214,27 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
                 if (IsAuthenticated)
                 {
+                    _logger.Info("Logging out from Spotify");
                     await _spotifyService.LogoutAsync();
                 }
                 else
                 {
+                    _logger.Info("Starting Spotify authentication");
                     bool success = await _spotifyService.AuthenticateAsync();
                     if (!success)
                     {
+                        _logger.Warn("Spotify authentication failed");
                         StatusMessage = "Failed to connect to Spotify. Please check your configuration.";
+                    }
+                    else
+                    {
+                        _logger.Info($"Spotify authentication successful - user: {_spotifyService.CurrentUserName}");
                     }
                 }
             }
             catch (Exception ex)
             {
+                _logger.Error(ex, "Authentication error occurred");
                 StatusMessage = $"Authentication error: {ex.Message}";
                 MessageBox.Show($"Authentication failed: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
@@ -220,7 +249,12 @@ namespace SpotifyToM3U.MVVM.ViewModel
         private async Task LoadUserPlaylistsAsync()
         {
             if (!IsAuthenticated)
+            {
+                _logger.Debug("LoadUserPlaylistsAsync called but user not authenticated");
                 return;
+            }
+
+            _logger.Debug("Starting to load user playlists");
 
             try
             {
@@ -237,10 +271,13 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
                 ShowPlaylists = UserPlaylists.Count > 0;
                 StatusMessage = $"Loaded {UserPlaylists.Count} playlists";
+
+                _logger.Info($"Successfully loaded {UserPlaylists.Count} user playlists");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error loading playlists: {ex.Message}";
+                _logger.Error(ex, "Error loading user playlists");
                 Debug.WriteLine($"Error loading playlists: {ex}");
             }
             finally
