@@ -19,8 +19,8 @@ namespace SpotifyToM3U.MVVM.ViewModel
         #region Fields
 
         private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(ExportVM));
-        private SpotifyVM _spotifyVM;
-        private LibraryVM _libraryVM;
+        private readonly SpotifyVM _spotifyVM;
+        private readonly LibraryVM _libraryVM;
 
         #endregion
 
@@ -47,7 +47,6 @@ namespace SpotifyToM3U.MVVM.ViewModel
                 _spotifyVM = App.Current.ServiceProvider.GetRequiredService<SpotifyVM>();
                 _libraryVM = App.Current.ServiceProvider.GetRequiredService<LibraryVM>();
                 Navigation.PropertyChanged += Navigation_PropertyChanged;
-                _libraryVM.AudioFilesModifified += LibraryVM_AudioFilesModifified;
                 PropertyChanged += OnTextBoxPropertyChanged;
 
                 _logger.Info($"ExportVM initialized successfully. Default export path: {ExportPath}");
@@ -64,55 +63,92 @@ namespace SpotifyToM3U.MVVM.ViewModel
             if (e.PropertyName == nameof(Navigation.CurrentView))
             {
                 ExportIsVisible = false;
+                CalculateExportRoot();
             }
         }
 
-        public void LibraryVM_AudioFilesModifified(object? sender, EventArgs e)
+        private void CalculateExportRoot()
         {
-            _logger.Debug("Library audio files modified, recalculating export root path");
+            Task.Run(() =>
+            {
+                try
+                {
+                    List<string?> actualTrackPaths = _spotifyVM.PlaylistTracks
+                        .Where(track => track.IsLocal && !string.IsNullOrEmpty(track.Path))
+                        .Select(track => Path.GetDirectoryName(track.Path))
+                        .Where(dir => !string.IsNullOrEmpty(dir))
+                        .Distinct()
+                        .ToList();
+
+                    if (actualTrackPaths.Count == 0)
+                    {
+                        _logger.Debug("No matched tracks found for relative export calculation");
+                        return;
+                    }
+
+                    _logger.Debug($"Calculating common root from {actualTrackPaths.Count} actual track directories");
+
+                    string commonRoot = FindCommonRoot(actualTrackPaths);
+                    if (!string.IsNullOrEmpty(commonRoot) && commonRoot.Length > 3)
+                    {
+                        _exportRoot = !commonRoot.EndsWith("\\") ? commonRoot + "\\" : commonRoot;
+                        CanAsRelativ = true;
+                        _logger.Info($"Export root calculated from actual tracks: {_exportRoot}");
+                    }
+                    else
+                    {
+                        _logger.Debug($"Common root too generic or empty: '{commonRoot}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Error calculating export root path");
+                }
+            });
+        }
+
+        private static string FindCommonRoot(List<string?> paths)
+        {
+            if (paths.Count == 0) return string.Empty;
+            if (paths.Count == 1) return paths[0] ?? string.Empty;
 
             try
             {
-                if (_libraryVM.RootPathes.Count == 0)
+                List<string[]> pathSegments = paths.ConvertAll(path => Path.GetFullPath(path!).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries));
+
+                int minSegments = pathSegments.Min(segments => segments.Length);
+                List<string> commonSegments = [];
+
+                for (int i = 0; i < minSegments; i++)
                 {
-                    _logger.Debug("No root paths available for relative export calculation");
-                    return;
+                    string currentSegment = pathSegments[0][i];
+                    if (pathSegments.All(segments => segments[i].Equals(currentSegment, StringComparison.OrdinalIgnoreCase)))
+                        commonSegments.Add(currentSegment);
+                    else
+                        break;
                 }
 
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        string[][] collection = _libraryVM.RootPathes.ToList().Select(x => x.Split("\\")).ToArray();
-                        List<string> rootPath = new();
+                if (commonSegments.Count == 0) return string.Empty;
 
-                        for (int j = 0; j < collection[0].Length; j++)
-                            if (collection.All(x => x[j] == collection[0][j]))
-                                rootPath.Add(collection[0][j]);
-                        string path = string.Join("\\", rootPath);
-                        if (IOManager.TryGetFullPath(path, out path))
-                        {
-                            _exportRoot = path + "\\";
-                            CanAsRelativ = true;
-                            _logger.Info($"Export root path calculated: {_exportRoot}");
-                        }
-                        else
-                        {
-                            CanAsRelativ = false;
-                            _logger.Warn($"Invalid export root path calculated: {path}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Error calculating export root path");
-                        CanAsRelativ = false;
-                    }
-                });
+                string commonPath = string.Join("\\", commonSegments);
+                return commonSegments[0].EndsWith(':') ? commonPath + "\\" : "\\" + commonPath;
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.Error(ex, "Error in LibraryVM_AudioFilesModifified handler");
+                return string.Empty;
             }
+        }
+
+        private string GetRelativePath(string fullPath, string rootPath)
+        {
+            if (string.IsNullOrEmpty(fullPath) || string.IsNullOrEmpty(rootPath))
+                return fullPath;
+
+            string normalizedRoot = rootPath.EndsWith("\\") ? rootPath : rootPath + "\\";
+
+            return fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+                ? fullPath[normalizedRoot.Length..]
+                : fullPath;
         }
 
         private void OnTextBoxPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -174,35 +210,27 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
             try
             {
-                // Create export directory
                 Directory.CreateDirectory(ExportPath);
-                _logger.Debug($"Export directory created/verified: {ExportPath}");
 
-                // Generate filename
                 string playlistFileName = IOManager.RemoveInvalidFileNameChars(_spotifyVM.PlaylistName) + ".m3u8";
                 string fullPath = Path.Combine(ExportPath, playlistFileName);
-                _logger.Debug($"Full export file path: {fullPath}");
 
-                // Build playlist content
                 List<string> files = new()
                 {
                     "#EXTM3U",
                     "#" + _spotifyVM.PlaylistName + ".m3u8"
                 };
 
-                // Get selected tracks for export
                 List<Track> selectedTracks = _spotifyVM.PlaylistTracks.Where(t => t.IsIncludedInExport).ToList();
                 _logger.Info($"Exporting {selectedTracks.Count} out of {_spotifyVM.PlaylistTracks.Count} total tracks");
 
-                List<string> exportPaths = selectedTracks.Select(track =>
-                    ExportAsRelativ ? track.Path.Remove(0, _exportRoot.Length) : track.Path).ToList();
+                List<string> exportPaths = selectedTracks.ConvertAll(track =>
+                    ExportAsRelativ ? GetRelativePath(track.Path, _exportRoot) : track.Path);
 
                 files.AddRange(exportPaths);
-
-                // Write the playlist file
                 File.WriteAllLines(fullPath, files);
-                _logger.Info($"Playlist exported successfully to: {fullPath}");
 
+                _logger.Info($"Playlist exported successfully to: {fullPath}");
                 ExportIsVisible = true;
             }
             catch (Exception ex)
@@ -220,10 +248,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
             try
             {
-                FolderBrowserDialog folderBrowser = new()
-                {
-                    ShowNewFolderButton = false
-                };
+                FolderBrowserDialog folderBrowser = new() { ShowNewFolderButton = false };
 
                 if (folderBrowser.ShowDialog() == DialogResult.OK)
                 {

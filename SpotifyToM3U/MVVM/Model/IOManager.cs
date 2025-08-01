@@ -158,7 +158,6 @@ namespace SpotifyToM3U.MVVM.Model
                 using TextReader dirReader = new StreamReader(SettingsSaveFilePath);
                 string[] list = (serializer.Deserialize(dirReader) as string[]) ?? Array.Empty<string>();
                 Array.ForEach(list, (x) => _libraryVM.RootPathes.Add(x));
-                _exportVM.LibraryVM_AudioFilesModifified(this, null!);
 
                 _logger.Info($"Loaded {list.Length} root paths from settings");
             }
