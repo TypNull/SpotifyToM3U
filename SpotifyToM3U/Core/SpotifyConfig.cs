@@ -14,7 +14,7 @@ namespace SpotifyToM3U.Core
     {
         public string ClientId { get; set; } = "your_client_id_here";
         public string ClientSecret { get; set; } = "your_client_secret_here";
-        public string RedirectUri { get; set; } = "http://localhost:5000/callback";
+        public string RedirectUri { get; set; } = "http://127.0.0.1:5000/callback";
         public List<string> Scopes { get; set; } = new()
         {
             SpotifyAPI.Web.Scopes.PlaylistReadPrivate,

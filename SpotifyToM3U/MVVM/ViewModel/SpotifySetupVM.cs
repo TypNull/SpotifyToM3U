@@ -73,38 +73,20 @@ namespace SpotifyToM3U.MVVM.ViewModel
         }
 
         [RelayCommand]
-        private void CopyHttpsRedirectUri()
-        {
-            _logger.Debug("Copying HTTPS redirect URI to clipboard");
-
-            try
-            {
-                Clipboard.SetText("https://localhost:5000/callback");
-                StatusMessage = "HTTPS redirect URI copied to clipboard! Use this when creating your app.";
-                _logger.Info("HTTPS redirect URI copied to clipboard successfully");
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"Failed to copy to clipboard: {ex.Message}";
-                _logger.Error(ex, "Failed to copy HTTPS redirect URI to clipboard");
-            }
-        }
-
-        [RelayCommand]
         private void CopyRedirectUri()
         {
-            _logger.Debug("Copying HTTP redirect URI to clipboard");
+            _logger.Debug("Copying redirect URI to clipboard");
 
             try
             {
-                Clipboard.SetText("http://localhost:5000/callback");
-                StatusMessage = "HTTP redirect URI copied to clipboard! Edit your app to use this final URI.";
-                _logger.Info("HTTP redirect URI copied to clipboard successfully");
+                Clipboard.SetText("http://127.0.0.1:5000/callback");
+                StatusMessage = "Redirect URI copied to clipboard! Paste this when creating your Spotify app.";
+                _logger.Info("Redirect URI copied to clipboard successfully");
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Failed to copy to clipboard: {ex.Message}";
-                _logger.Error(ex, "Failed to copy HTTP redirect URI to clipboard");
+                _logger.Error(ex, "Failed to copy redirect URI to clipboard");
             }
         }
 
@@ -134,7 +116,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
                 {
                     ClientId = ClientId.Trim(),
                     ClientSecret = ClientSecret.Trim(),
-                    RedirectUri = "http://localhost:5000/callback",
+                    RedirectUri = "http://127.0.0.1:5000/callback",
                     Scopes = new()
                     {
                         SpotifyAPI.Web.Scopes.PlaylistReadPrivate,
