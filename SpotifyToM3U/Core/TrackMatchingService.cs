@@ -92,7 +92,8 @@ namespace SpotifyToM3U.Core
             result.ScoreBreakdown["Artist"] = artistScore;
 
             // 3. Album Matching (15% weight) - bonus points
-            double albumScore = CalculateAlbumSimilarity(spotifyTrack.Album?.Name, audioFile.Album);
+            // Now also considers path-derived album from folder structure
+            double albumScore = CalculateAlbumSimilarity(spotifyTrack.Album?.Name, audioFile);
             result.ScoreBreakdown["Album"] = albumScore;
 
             // 4. Filename Matching (10% weight) - fallback
@@ -179,34 +180,100 @@ namespace SpotifyToM3U.Core
         }
 
         /// <summary>
-        /// Calculate album similarity
+        /// Calculate album similarity.
+        /// Uses both ID3 tag album and path-derived album (from folder name).
         /// </summary>
-        private static double CalculateAlbumSimilarity(string? spotifyAlbum, string? audioAlbum)
+        private static double CalculateAlbumSimilarity(string? spotifyAlbum, AudioFile audioFile)
         {
-            if (string.IsNullOrEmpty(spotifyAlbum) || string.IsNullOrEmpty(audioAlbum))
-                return 0.5; // Neutral when album info missing
+            if (string.IsNullOrEmpty(spotifyAlbum))
+                return 0.5; // Neutral when Spotify album info missing
 
             string cleanSpotify = CleanTitle(spotifyAlbum);
-            string cleanAudio = CleanTitle(audioAlbum);
+            double maxScore = 0.5; // Default neutral score
 
-            if (cleanSpotify.Equals(cleanAudio, StringComparison.OrdinalIgnoreCase))
-                return 1.0;
+            // Check ID3 tag album
+            if (!string.IsNullOrEmpty(audioFile.Album))
+            {
+                string cleanAudio = CleanTitle(audioFile.Album);
+                if (cleanSpotify.Equals(cleanAudio, StringComparison.OrdinalIgnoreCase))
+                    return 1.0;
+                maxScore = Math.Max(maxScore, CalculateFuzzyMatch(cleanSpotify, cleanAudio));
+            }
 
-            return CalculateFuzzyMatch(cleanSpotify, cleanAudio);
+            // Also check path-derived album (folder name)
+            if (!string.IsNullOrEmpty(audioFile.PathDerivedAlbum))
+            {
+                string cleanPathAlbum = CleanTitle(audioFile.PathDerivedAlbum);
+                if (cleanSpotify.Equals(cleanPathAlbum, StringComparison.OrdinalIgnoreCase))
+                    return 1.0;
+                double pathAlbumScore = CalculateFuzzyMatch(cleanSpotify, cleanPathAlbum);
+                if (pathAlbumScore > maxScore)
+                {
+                    _logger.Debug($"Path-derived album '{audioFile.PathDerivedAlbum}' matched better than ID3 album");
+                    maxScore = pathAlbumScore;
+                }
+            }
+
+            return maxScore;
         }
 
         /// <summary>
-        /// Calculate filename-based similarity as fallback
+        /// Calculate filename-based similarity as fallback.
+        /// Supports multiple filename patterns:
+        /// - "Artist - Title" (traditional)
+        /// - "## Title" or "## - Title" (track number prefix, used with folder-based artist)
         /// </summary>
         private static double CalculateFilenameSimilarity(Track spotifyTrack, AudioFile audioFile)
         {
             string filename = System.IO.Path.GetFileNameWithoutExtension(audioFile.Location);
-            string expectedPattern = $"{spotifyTrack.Artists?.FirstOrDefault()?.Name} - {spotifyTrack.Title}";
+            double maxScore = 0.0;
 
+            // Pattern 1: Traditional "Artist - Title" format
+            string expectedPattern = $"{spotifyTrack.Artists?.FirstOrDefault()?.Name} - {spotifyTrack.Title}";
             string cleanFilename = CleanTitle(filename);
             string cleanExpected = CleanTitle(expectedPattern);
+            maxScore = Math.Max(maxScore, CalculateFuzzyMatch(cleanFilename, cleanExpected));
 
-            return CalculateFuzzyMatch(cleanFilename, cleanExpected);
+            // Pattern 2: Track number prefix "## Title" - extract title and compare
+            string extractedTitle = ExtractTitleFromFilename(filename);
+            if (!string.IsNullOrEmpty(extractedTitle))
+            {
+                string cleanExtractedTitle = CleanTitle(extractedTitle);
+                string cleanSpotifyTitle = CleanTitle(spotifyTrack.Title);
+                double titleOnlyScore = CalculateFuzzyMatch(cleanExtractedTitle, cleanSpotifyTitle);
+                maxScore = Math.Max(maxScore, titleOnlyScore);
+            }
+
+            // Pattern 3: Path-based matching - combine folder artist with filename title
+            if (!string.IsNullOrEmpty(audioFile.PathDerivedArtist))
+            {
+                string pathBasedPattern = $"{audioFile.PathDerivedArtist} - {extractedTitle}";
+                string cleanPathBased = CleanTitle(pathBasedPattern);
+                double pathScore = CalculateFuzzyMatch(cleanPathBased, cleanExpected);
+                maxScore = Math.Max(maxScore, pathScore);
+            }
+
+            return maxScore;
+        }
+
+        /// <summary>
+        /// Extracts the title from a filename, removing track numbers and common prefixes.
+        /// Handles patterns like: "01 Title", "01 - Title", "01. Title", "1 - Title"
+        /// </summary>
+        private static string ExtractTitleFromFilename(string filename)
+        {
+            if (string.IsNullOrEmpty(filename))
+                return string.Empty;
+
+            // Pattern to match track numbers at the start: "01 ", "01 - ", "01. ", "1 - ", etc.
+            Match match = Regex.Match(filename, @"^\d{1,3}[\s.\-_]+(.+)$");
+            if (match.Success)
+            {
+                return match.Groups[1].Value.Trim();
+            }
+
+            // If no track number pattern, return the filename as-is
+            return filename.Trim();
         }
 
         /// <summary>
@@ -303,19 +370,31 @@ namespace SpotifyToM3U.Core
         }
 
         /// <summary>
-        /// Extract all artists from audio file
+        /// Extract all artists from audio file.
+        /// Uses multiple sources in order of priority:
+        /// 1. ID3 tag artists (from TagLib)
+        /// 2. Path-derived artist (from folder structure)
+        /// 3. Filename pattern "Artist - Title"
         /// </summary>
         private static List<string> ExtractAllArtists(AudioFile audioFile)
         {
             List<string> artists = new();
 
+            // Source 1: ID3 tag artists
             if (audioFile.Artists != null)
             {
                 artists.AddRange(audioFile.Artists.Select(CleanTitle));
             }
 
-            // Also try to extract from filename if artist field is empty
-            if (!artists.Any())
+            // Source 2: Path-derived artist (from folder structure like Artist/Album/Track.mp3)
+            if (!artists.Any(a => !string.IsNullOrEmpty(a)) && !string.IsNullOrEmpty(audioFile.PathDerivedArtist))
+            {
+                artists.Add(CleanTitle(audioFile.PathDerivedArtist));
+                _logger.Debug($"Using path-derived artist for matching: {audioFile.PathDerivedArtist}");
+            }
+
+            // Source 3: Extract from filename pattern "Artist - Title"
+            if (!artists.Any(a => !string.IsNullOrEmpty(a)))
             {
                 string filename = System.IO.Path.GetFileNameWithoutExtension(audioFile.Location);
                 Match match = Regex.Match(filename, @"^(.+?)\s*-\s*(.+)$");
@@ -422,6 +501,10 @@ namespace SpotifyToM3U.Core
 
             if (breakdown["Filename"] > breakdown["Title"])
                 return "Filename Match";
+
+            // Check if path-derived data contributed significantly
+            if (breakdown.ContainsKey("PathMatch") && breakdown["PathMatch"] > 0.8)
+                return "Path Match";
 
             return "Fuzzy Match";
         }

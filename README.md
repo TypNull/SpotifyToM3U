@@ -52,11 +52,29 @@ This tool converts Spotify playlists (public or private) into **M3U8** playlist 
 
 ---
 
-## 🔧 Troubleshooting  
+## 📂 Supported Library Structures
 
-- **Missing tracks?** Ensure filenames match Spotify’s metadata (e.g., `Artist - Title.mp3`).  
-- **Login issues?** Re-authenticate via Spotify’s OAuth prompt.  
-- **File not found?** Check your selected music folder path.  
+The app uses a **smart matching algorithm** that works with multiple library organization styles:
+
+| Structure | Example | Support |
+|-----------|---------|---------|
+| **ID3 Tags** (recommended) | Any filename with proper metadata | ✅ Primary method |
+| **Artist - Title** filename | `Pink Floyd - Comfortably Numb.mp3` | ✅ Fully supported |
+| **Artist/Album/Track** folders | `Pink Floyd/The Wall/01 Comfortably Numb.mp3` | ✅ Fully supported |
+| **Track Number + Title** | `01 Comfortably Numb.mp3` | ✅ Supported with folder context |
+
+The matching algorithm prioritizes embedded ID3 tags but automatically falls back to folder/filename parsing when tags are missing.
+
+---
+
+## 🔧 Troubleshooting
+
+- **Missing tracks?** The app matches using ID3 metadata first, then folder structure. Ensure your files have either:
+  - Proper ID3 tags (Title, Artist, Album), OR
+  - Organized folder structure like `Artist/Album/## Title.mp3`
+- **Login issues?** Re-authenticate via Spotify's OAuth prompt.
+- **File not found?** Check your selected music folder path.
+- **Low confidence matches?** Files with both good ID3 tags AND organized folders get the highest match scores.
 
 Report bugs on the [Issues page](https://github.com/TypNull/SpotifyToM3U/issues).  
 
