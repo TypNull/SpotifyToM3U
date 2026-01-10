@@ -12,6 +12,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
@@ -78,7 +79,10 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         // Store all tracks for filtering
         private List<Track> _allTracks = new();
-        private List<TrackMatchResult> _allMatchResults = new();
+        private readonly List<TrackMatchResult> _allMatchResults = new();
+
+        // Cancellation for authentication
+        private CancellationTokenSource? _authCancellationTokenSource;
 
         #endregion
 
@@ -101,6 +105,9 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
         [ObservableProperty]
         private string _statusMessage = "Connect to Spotify to get started";
+
+        [ObservableProperty]
+        private bool _isAuthenticating = false;
 
         [ObservableProperty]
         private ObservableCollection<PlaylistInfo> _userPlaylists = new();
@@ -210,27 +217,46 @@ namespace SpotifyToM3U.MVVM.ViewModel
             try
             {
                 IsLoading = true;
-                StatusMessage = "Connecting to Spotify...";
 
                 if (IsAuthenticated)
                 {
+                    StatusMessage = "Logging out...";
                     _logger.Info("Logging out from Spotify");
                     await _spotifyService.LogoutAsync();
                 }
                 else
                 {
+                    IsAuthenticating = true;
+                    StatusMessage = "Connecting to Spotify... (Press Escape or Q to cancel)";
                     _logger.Info("Starting Spotify authentication");
-                    bool success = await _spotifyService.AuthenticateAsync();
+
+                    _authCancellationTokenSource?.Cancel();
+                    _authCancellationTokenSource = new CancellationTokenSource();
+
+                    bool success = await _spotifyService.AuthenticateAsync(_authCancellationTokenSource.Token);
                     if (!success)
                     {
-                        _logger.Warn("Spotify authentication failed");
-                        StatusMessage = "Failed to connect to Spotify. Please check your configuration.";
+                        if (_authCancellationTokenSource.Token.IsCancellationRequested)
+                        {
+                            _logger.Info("Spotify authentication cancelled by user");
+                            StatusMessage = "Authentication cancelled.";
+                        }
+                        else
+                        {
+                            _logger.Warn("Spotify authentication failed");
+                            StatusMessage = "Failed to connect to Spotify. Please check your configuration.";
+                        }
                     }
                     else
                     {
                         _logger.Info($"Spotify authentication successful - user: {_spotifyService.CurrentUserName}");
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Info("Authentication cancelled");
+                StatusMessage = "Authentication cancelled.";
             }
             catch (Exception ex)
             {
@@ -242,6 +268,20 @@ namespace SpotifyToM3U.MVVM.ViewModel
             finally
             {
                 IsLoading = false;
+                IsAuthenticating = false;
+                _authCancellationTokenSource?.Dispose();
+                _authCancellationTokenSource = null;
+            }
+        }
+
+        [RelayCommand]
+        private void CancelAuthentication()
+        {
+            if (IsAuthenticating)
+            {
+                _logger.Info("User requested authentication cancellation");
+                _authCancellationTokenSource?.Cancel();
+                _spotifyService.CancelAuthentication();
             }
         }
 

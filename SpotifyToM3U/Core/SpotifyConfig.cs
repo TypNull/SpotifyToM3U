@@ -1,12 +1,15 @@
-﻿using NLog;
+using NLog;
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace SpotifyToM3U.Core
 {
@@ -14,7 +17,7 @@ namespace SpotifyToM3U.Core
     {
         public string ClientId { get; set; } = "your_client_id_here";
         public string ClientSecret { get; set; } = "your_client_secret_here";
-        public string RedirectUri { get; set; } = "http://127.0.0.1:5000/callback";
+        public string RedirectUri { get; set; } = "spotifytom3u://callback/oauth";
         public List<string> Scopes { get; set; } = new()
         {
             SpotifyAPI.Web.Scopes.PlaylistReadPrivate,
@@ -39,10 +42,13 @@ namespace SpotifyToM3U.Core
         bool IsAuthenticated { get; }
         string CurrentUserName { get; }
         bool IsInitialized { get; }
+        bool IsAuthenticating { get; }
         event EventHandler<bool> AuthenticationStateChanged;
 
         Task InitializeAsync();
-        Task<bool> AuthenticateAsync();
+        Task<bool> AuthenticateAsync(CancellationToken cancellationToken = default);
+        void CancelAuthentication();
+        void HandleOAuthCallback(string url);
         Task LogoutAsync();
         Task<IEnumerable<FullPlaylist>> GetUserPlaylistsAsync();
         Task<FullPlaylist> GetPlaylistAsync(string playlistId);
@@ -58,15 +64,19 @@ namespace SpotifyToM3U.Core
         private readonly string _tokenFilePath;
         private SpotifyClient? _spotify;
         private SpotifyClient? _publicSpotify; // For public access without user authentication
-        private EmbedIOAuthServer? _server;
         private SpotifyAuthToken? _currentToken;
         private readonly object _initializationLock = new();
         private volatile bool _isInitialized = false;
         private Task? _initializationTask;
 
+        // For OAuth callback handling
+        private TaskCompletionSource<string>? _authorizationCodeTcs;
+        private readonly object _authLock = new();
+
         public bool IsAuthenticated => _spotify != null && _currentToken != null && !_currentToken.IsExpired;
         public string CurrentUserName { get; private set; } = string.Empty;
         public bool IsInitialized => _isInitialized;
+        public bool IsAuthenticating { get; private set; } = false;
 
         public event EventHandler<bool>? AuthenticationStateChanged;
 
@@ -209,12 +219,13 @@ namespace SpotifyToM3U.Core
             }
         }
 
-        public async Task<bool> AuthenticateAsync()
+        public async Task<bool> AuthenticateAsync(CancellationToken cancellationToken = default)
         {
             _logger.Info("Starting Spotify authentication process");
 
             try
             {
+                IsAuthenticating = true;
                 await InitializeAsync(); // Ensure initialization is complete
 
                 if (string.IsNullOrEmpty(_config.ClientId) || _config.ClientId == "your_client_id_here")
@@ -240,35 +251,156 @@ namespace SpotifyToM3U.Core
                     await InitializePublicClientAsync();
                 }
 
-                _server = new EmbedIOAuthServer(new Uri(_config.RedirectUri), 5000);
-                await _server.Start();
+                lock (_authLock)
+                {
+                    _authorizationCodeTcs = new TaskCompletionSource<string>();
+                }
 
-                _server.AuthorizationCodeReceived += OnAuthorizationCodeReceived;
-                _server.ErrorReceived += OnErrorReceived;
-
-                LoginRequest request = new(_server.BaseUri, _config.ClientId, LoginRequest.ResponseType.Code)
+                LoginRequest request = new(new Uri(_config.RedirectUri), _config.ClientId, LoginRequest.ResponseType.Code)
                 {
                     Scope = _config.Scopes
                 };
 
-                BrowserUtil.Open(request.ToUri());
+                Uri authUrl = request.ToUri();
+                _logger.Debug($"Opening browser with authorization URL: {authUrl}");
+
+                BrowserUtil.Open(authUrl);
+
+                string authorizationCode;
+                using (CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    cts.CancelAfter(TimeSpan.FromMinutes(5));
+
+                    Task<string> completionTask = _authorizationCodeTcs.Task;
+                    Task timeoutTask = Task.Delay(Timeout.Infinite, cts.Token);
+
+                    Task completedTask = await Task.WhenAny(completionTask, timeoutTask);
+
+                    if (completedTask == timeoutTask)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            _logger.Info("OAuth authorization cancelled by user");
+                            throw new OperationCanceledException("Authentication cancelled.", cancellationToken);
+                        }
+                        _logger.Warn("OAuth authorization timed out");
+                        throw new TimeoutException("Authorization timed out. Please try again.");
+                    }
+
+                    authorizationCode = await completionTask;
+                }
+
+                _logger.Debug("Authorization code received, exchanging for token");
+
+                await ExchangeCodeForTokenAsync(authorizationCode);
+
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.Info("Authentication was cancelled");
+                lock (_authLock)
+                {
+                    _authorizationCodeTcs?.TrySetCanceled();
+                    _authorizationCodeTcs = null;
+                }
+                return false;
             }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Authentication process failed");
-                await LogoutAsync();
+                lock (_authLock)
+                {
+                    _authorizationCodeTcs?.TrySetException(ex);
+                    _authorizationCodeTcs = null;
+                }
                 throw;
+            }
+            finally
+            {
+                IsAuthenticating = false;
             }
         }
 
-        private async Task OnAuthorizationCodeReceived(object sender, AuthorizationCodeResponse response)
+        public void CancelAuthentication()
+        {
+            _logger.Info("CancelAuthentication called");
+            lock (_authLock)
+            {
+                _authorizationCodeTcs?.TrySetCanceled();
+                _authorizationCodeTcs = null;
+            }
+        }
+
+        /// <summary>
+        /// Handles OAuth callback URLs received via the custom URL scheme.
+        /// </summary>
+        public void HandleOAuthCallback(string url)
         {
             try
             {
-                await _server!.Stop();
+                _logger.Debug($"Processing OAuth callback URL: {url}");
 
-                AuthorizationCodeTokenRequest tokenRequest = new(_config.ClientId, _config.ClientSecret, response.Code, _server.BaseUri);
+                Uri uri = new Uri(url);
+                string query = uri.Query;
+
+                NameValueCollection queryParams = HttpUtility.ParseQueryString(query);
+                string? code = queryParams["code"];
+                string? error = queryParams["error"];
+
+                if (!string.IsNullOrEmpty(error))
+                {
+                    _logger.Error($"OAuth error received: {error}");
+                    lock (_authLock)
+                    {
+                        _authorizationCodeTcs?.TrySetException(new Exception($"Authorization error: {error}"));
+                        _authorizationCodeTcs = null;
+                    }
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(code))
+                {
+                    _logger.Error("OAuth callback received without authorization code");
+                    lock (_authLock)
+                    {
+                        _authorizationCodeTcs?.TrySetException(new Exception("No authorization code received"));
+                        _authorizationCodeTcs = null;
+                    }
+                    return;
+                }
+
+                _logger.Info("Authorization code extracted from callback");
+
+                lock (_authLock)
+                {
+                    _authorizationCodeTcs?.TrySetResult(code);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error handling OAuth callback");
+                lock (_authLock)
+                {
+                    _authorizationCodeTcs?.TrySetException(ex);
+                    _authorizationCodeTcs = null;
+                }
+            }
+        }
+
+        private async Task ExchangeCodeForTokenAsync(string authorizationCode)
+        {
+            try
+            {
+                _logger.Debug("Exchanging authorization code for access token");
+
+                AuthorizationCodeTokenRequest tokenRequest = new(
+                    _config.ClientId,
+                    _config.ClientSecret,
+                    authorizationCode,
+                    new Uri(_config.RedirectUri)
+                );
+
                 AuthorizationCodeTokenResponse tokenResponse = await new OAuthClient().RequestToken(tokenRequest);
 
                 _currentToken = new SpotifyAuthToken
@@ -305,16 +437,10 @@ namespace SpotifyToM3U.Core
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "Token processing failed during authentication");
+                _logger.Error(ex, "Token exchange failed");
                 await LogoutAsync();
+                throw;
             }
-        }
-
-        private async Task OnErrorReceived(object sender, string error, string? state)
-        {
-            _logger.Error($"Authentication error received: {error}");
-            await _server!.Stop();
-            AuthenticationStateChanged?.Invoke(this, false);
         }
 
         private async Task<bool> TryLoadStoredTokenAsync()
@@ -463,15 +589,15 @@ namespace SpotifyToM3U.Core
             {
                 _logger.Info("Logging out user");
 
-                if (_server != null)
-                {
-                    await _server.Stop();
-                    _server = null;
-                }
-
                 _spotify = null;
                 _currentToken = null;
                 CurrentUserName = string.Empty;
+
+                lock (_authLock)
+                {
+                    _authorizationCodeTcs?.TrySetCanceled();
+                    _authorizationCodeTcs = null;
+                }
 
                 if (File.Exists(_tokenFilePath))
                 {

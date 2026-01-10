@@ -328,7 +328,7 @@
                                        Margin="0,0,0,4" />
 
                             <!-- Redirect URI -->
-                            <TextBox Text="http://127.0.0.1:5000/callback"
+                            <TextBox Text="spotifytom3u://callback/oauth"
                                      Style="{StaticResource SelectableTextBox}"
                                      Margin="0,4,0,8"
                                      ToolTip="Copy this URI and paste it in the 'Redirect URIs' field when creating your Spotify app" />

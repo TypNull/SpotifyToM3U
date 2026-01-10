@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using NLog;
 using SpotifyToM3U.Core;
 using SpotifyToM3U.MVVM.Model;
@@ -17,6 +17,7 @@ namespace SpotifyToM3U
     {
         private readonly ServiceProvider _serviceProvider;
         private static readonly Logger _logger = SpotifyToM3ULogger.GetLogger(typeof(App));
+        private UrlSchemeHandler? _urlSchemeHandler;
 
         public ServiceProvider ServiceProvider => _serviceProvider;
         internal MainVM MainVM { get; set; } = null!;
@@ -62,6 +63,25 @@ namespace SpotifyToM3U
             {
                 base.OnStartup(e);
 
+                // Initialize URL scheme handler for OAuth callbacks
+                InitializeUrlSchemeHandler(e.Args);
+
+                if (_urlSchemeHandler != null && !_urlSchemeHandler.IsFirstInstance)
+                {
+                    if (e.Args.Length > 0 && e.Args[0].StartsWith("spotifytom3u://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.Info("Secondary instance detected with OAuth callback URL - forwarding to main instance");
+                        _urlSchemeHandler.SendUrlToMainInstance(e.Args[0]);
+                    }
+                    else
+                    {
+                        _logger.Info("Secondary instance detected without callback URL - bringing main instance to front");
+                    }
+
+                    Shutdown();
+                    return;
+                }
+
                 // Show window first, then initialize in background
                 _serviceProvider.GetRequiredService<INavigationService>().NavigateTo<LibraryVM>();
                 MainWindow window = _serviceProvider.GetRequiredService<MainWindow>();
@@ -73,12 +93,79 @@ namespace SpotifyToM3U
                 // Initialize Spotify service in background
                 _ = Task.Run(async () => await InitializeSpotifyServiceAsync());
 
+                if (e.Args.Length > 0 && e.Args[0].StartsWith("spotifytom3u://", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.Info($"OAuth callback URL received on startup: {e.Args[0]}");
+                    _urlSchemeHandler?.ProcessUrl(e.Args[0]);
+                }
+
                 _logger.Debug("Background Spotify initialization started");
             }
             catch (Exception ex)
             {
                 _logger.Fatal(ex, "Critical error during application startup");
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Initializes the URL scheme handler for OAuth callbacks.
+        /// </summary>
+        private void InitializeUrlSchemeHandler(string[] args)
+        {
+            try
+            {
+                _logger.Debug("Initializing URL scheme handler for OAuth");
+
+                _urlSchemeHandler = new UrlSchemeHandler();
+                _urlSchemeHandler.Initialize();
+                _urlSchemeHandler.UrlReceived += OnOAuthCallbackReceived;
+                _logger.Info("URL scheme handler initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to initialize URL scheme handler - OAuth may not work");
+            }
+        }
+
+        /// <summary>
+        /// Handles OAuth callback URLs received via the custom URL scheme.
+        /// </summary>
+        private void OnOAuthCallbackReceived(string url)
+        {
+            try
+            {
+                _logger.Info($"OAuth callback received: {url}");
+
+                if (!url.StartsWith("spotifytom3u://", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.Warn($"Received non-spotifytom3u URL: {url}");
+                    return;
+                }
+
+                ISpotifyService spotifyService = _serviceProvider.GetRequiredService<ISpotifyService>();
+                Dispatcher.Invoke(() =>
+                {
+                    spotifyService.HandleOAuthCallback(url);
+                });
+                Dispatcher.Invoke(() =>
+                {
+                    MainWindow? mainWindow = _serviceProvider.GetService<MainWindow>();
+                    if (mainWindow != null)
+                    {
+                        if (mainWindow.WindowState == WindowState.Minimized)
+                        {
+                            mainWindow.WindowState = WindowState.Normal;
+                        }
+                        mainWindow.Activate();
+                        mainWindow.Focus();
+                        _logger.Debug("Main window brought to front after OAuth callback");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error processing OAuth callback");
             }
         }
 
@@ -105,6 +192,7 @@ namespace SpotifyToM3U
 
             try
             {
+                _urlSchemeHandler?.Dispose();
                 _serviceProvider?.Dispose();
                 base.OnExit(e);
 

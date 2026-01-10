@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLog;
 using SpotifyToM3U.Core;
@@ -79,7 +79,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
 
             try
             {
-                Clipboard.SetText("http://127.0.0.1:5000/callback");
+                Clipboard.SetText("spotifytom3u://callback/oauth");
                 StatusMessage = "Redirect URI copied to clipboard! Paste this when creating your Spotify app.";
                 _logger.Info("Redirect URI copied to clipboard successfully");
             }
@@ -116,7 +116,7 @@ namespace SpotifyToM3U.MVVM.ViewModel
                 {
                     ClientId = ClientId.Trim(),
                     ClientSecret = ClientSecret.Trim(),
-                    RedirectUri = "http://127.0.0.1:5000/callback",
+                    RedirectUri = "spotifytom3u://callback/oauth",
                     Scopes = new()
                     {
                         SpotifyAPI.Web.Scopes.PlaylistReadPrivate,
