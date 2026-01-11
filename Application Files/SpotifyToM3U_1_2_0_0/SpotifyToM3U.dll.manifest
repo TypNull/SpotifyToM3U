@@ -276,7 +276,7 @@
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>YA2PWAsg2cPy3gVqPnqa+QNuhhb/WqiOObnrbBbNr9I=</dsig:DigestValue>
+      <dsig:DigestValue>J0tBRm7ItbhO99m1GNVQBm73HyzQaArEBQsjUDNwV9k=</dsig:DigestValue>
     </hash>
   </file>
   <file name="SpotifyToM3U.exe" size="274944">
@@ -285,7 +285,7 @@
         <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
       </dsig:Transforms>
       <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-      <dsig:DigestValue>pyU1lPx0TqGkgOozGWJMvm/NrNQnwloVxNtwjIw+zrU=</dsig:DigestValue>
+      <dsig:DigestValue>Gn8AHmCqpftNqgPwwMcgwNBvb+hVoKKe/l75XHa4N24=</dsig:DigestValue>
     </hash>
   </file>
   <file name="SpotifyToM3U.runtimeconfig.json" size="525">
