@@ -32,6 +32,14 @@ namespace SpotifyToM3U.MVVM.ViewModel
         [ObservableProperty]
         private bool _hasValidationErrors = false;
 
+        [ObservableProperty]
+        private bool _useTestCredentials = false;
+
+        [ObservableProperty]
+        private bool _areTestCredentialsAvailable = false;
+
+        public bool AreInputFieldsEnabled => !UseTestCredentials;
+
         public bool ConfigurationSaved { get; private set; } = false;
 
         public event EventHandler? RequestClose;
@@ -46,8 +54,30 @@ namespace SpotifyToM3U.MVVM.ViewModel
                 "spotify_config.json"
             );
 
+            AreTestCredentialsAvailable = EmbeddedSecrets.AreAvailable;
+
             LoadExistingConfiguration();
-            _logger.Info($"SpotifySetupVM initialized. Config path: {_configPath}");
+            _logger.Info($"SpotifySetupVM initialized. Config path: {_configPath}. Test credentials available: {AreTestCredentialsAvailable}");
+        }
+
+        partial void OnUseTestCredentialsChanged(bool value)
+        {
+            OnPropertyChanged(nameof(AreInputFieldsEnabled));
+
+            if (value && AreTestCredentialsAvailable)
+            {
+                ClientId = string.Empty;
+                ClientSecret = string.Empty;
+                StatusMessage = "Using embedded test credentials.";
+                _logger.Debug("Test credentials selected (credentials remain hidden)");
+            }
+            else if (!value)
+            {
+                ClientId = string.Empty;
+                ClientSecret = string.Empty;
+                StatusMessage = "Enter your Spotify API credentials to get started.";
+                _logger.Debug("Switched to manual credential entry");
+            }
         }
 
         [RelayCommand]
@@ -101,7 +131,25 @@ namespace SpotifyToM3U.MVVM.ViewModel
                 HasValidationErrors = false;
                 StatusMessage = "Validating credentials...";
 
-                // Validate inputs
+                if (UseTestCredentials)
+                {
+                    if (!AreTestCredentialsAvailable)
+                    {
+                        StatusMessage = "Test credentials are not available in this build. Please enter your own Spotify credentials.";
+                        HasValidationErrors = true;
+                        _logger.Warn("Test credentials selected but not available in build");
+                        return;
+                    }
+
+                    ConfigurationSaved = true;
+                    StatusMessage = "Test credentials will be used for this session only.";
+                    _logger.Info("Test credentials selected, configuration not persisted");
+
+                    await Task.Delay(1500);
+                    RequestClose?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
+
                 if (!ValidateInputs())
                 {
                     HasValidationErrors = true;

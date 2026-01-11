@@ -19,6 +19,8 @@
         WindowStartupLocation="CenterOwner">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        
         <!-- Modern Input Field Style -->
         <Style x:Key="ModernInputField"
                TargetType="TextBox">
@@ -342,6 +344,39 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- Test Credentials Option -->
+                    <Grid Margin="0,0,0,20"
+                          Visibility="{Binding AreTestCredentialsAvailable, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Style="{StaticResource StepNumber}">
+                            <TextBlock Text="🧪"
+                                       FontSize="12"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Use Test Credentials (Optional)"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,8" />
+                            <ToggleButton IsChecked="{Binding UseTestCredentials, Mode=TwoWay}"
+                                          Content="Use embedded test credentials for testing"
+                                          Style="{StaticResource ModernRadioButton}"
+                                          Margin="0,0,0,4" />
+                            <TextBlock Text="⚠️ Test credentials are for testing only and will not be saved."
+                                       FontSize="10"
+                                       Foreground="#FF9800"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+
                     <!-- Step 3 -->
                     <Grid Margin="0,0,0,20">
                         <Grid.ColumnDefinitions>
@@ -371,6 +406,7 @@
                                        Margin="0,0,0,4" />
                             <TextBox Text="{Binding ClientId, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource ModernInputField}"
+                                     IsEnabled="{Binding AreInputFieldsEnabled}"
                                      Margin="0,0,0,12" />
 
                             <TextBlock Text="Client Secret"
@@ -379,6 +415,7 @@
                                        Margin="0,0,0,4" />
                             <TextBox Text="{Binding ClientSecret, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource ModernInputField}"
+                                     IsEnabled="{Binding AreInputFieldsEnabled}"
                                      Margin="0,0,0,8" />
 
                             <TextBlock Text="⚠️ Keep your Client Secret private and secure!"

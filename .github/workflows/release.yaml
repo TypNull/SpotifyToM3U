@@ -20,4 +20,7 @@ jobs:
 
       - name: Run release script
         shell: pwsh
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: ./release.ps1

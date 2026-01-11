@@ -184,19 +184,25 @@ namespace SpotifyToM3U.Core
                 try
                 {
                     string json = File.ReadAllText(configPath);
-                    return JsonSerializer.Deserialize<SpotifyConfig>(json) ?? new SpotifyConfig();
+                    SpotifyConfig? config = JsonSerializer.Deserialize<SpotifyConfig>(json);
+                    if (config != null)
+                    {
+                        _logger.Debug("Loaded configuration from file");
+                        return config;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error(ex, "Error loading Spotify configuration, using defaults");
-                    return new SpotifyConfig();
+                    _logger.Error(ex, "Error loading Spotify configuration");
                 }
             }
 
-            // Create default config
-            SpotifyConfig config = new();
-            SaveConfig(config);
-            return config;
+            // No saved config - return default (will trigger setup window)
+            // Test credentials are handled in the setup window, not here
+            _logger.Debug("No saved config found, will show setup window");
+            SpotifyConfig defaultConfig = new();
+            SaveConfig(defaultConfig);
+            return defaultConfig;
         }
 
         private void SaveConfig(SpotifyConfig config)
@@ -242,9 +248,30 @@ namespace SpotifyToM3U.Core
                     // Reload configuration
                     _config = LoadConfig();
 
+                    // If still no valid config, check for embedded test credentials
                     if (string.IsNullOrEmpty(_config.ClientId) || _config.ClientId == "your_client_id_here")
                     {
-                        throw new InvalidOperationException("Spotify API configuration is still incomplete.");
+                        if (EmbeddedSecrets.AreAvailable)
+                        {
+                            _logger.Info("Using embedded test credentials for authentication");
+                            _config = new SpotifyConfig
+                            {
+                                ClientId = EmbeddedSecrets.SpotifyClientId,
+                                ClientSecret = EmbeddedSecrets.SpotifyClientSecret,
+                                RedirectUri = "spotifytom3u://callback/oauth",
+                                Scopes = new()
+                                {
+                                    SpotifyAPI.Web.Scopes.PlaylistReadPrivate,
+                                    SpotifyAPI.Web.Scopes.PlaylistReadCollaborative,
+                                    SpotifyAPI.Web.Scopes.UserLibraryRead,
+                                    SpotifyAPI.Web.Scopes.UserReadPrivate
+                                }
+                            };
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("Spotify API configuration is still incomplete.");
+                        }
                     }
 
                     // Reinitialize public client with new credentials

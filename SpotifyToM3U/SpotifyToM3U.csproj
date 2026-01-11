@@ -21,6 +21,8 @@
 		<Description>A WPF application to convert spotify to m3u8 with your local audio library</Description>
 		<NetCoreSdkVersion>8.0.404</NetCoreSdkVersion>
 		<MSBuildRuntimeVersion>8.0.404</MSBuildRuntimeVersion>
+		<SpotifyClientIdSecret Condition="'$(SpotifyClientIdSecret)' == ''">1111</SpotifyClientIdSecret>
+		<SpotifyClientSecretSecret Condition="'$(SpotifyClientSecretSecret)' == ''">1111111</SpotifyClientSecretSecret>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -53,10 +55,16 @@
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
 		<PackageReference Include="NLog" Version="6.0.2" />
 		<PackageReference Include="NLog.Extensions.Hosting" Version="6.0.2" />
+		<PackageReference Include="SecretPropertys" Version="2.0.0" />
 		<PackageReference Include="Shard.DownloadAssistant" Version="1.1.0" />
 		<PackageReference Include="SpotifyAPI.Web" Version="7.2.1" />
 		<PackageReference Include="SpotifyAPI.Web.Auth" Version="7.2.1" />
 		<PackageReference Include="taglib-sharp-netstandard2.0" Version="2.1.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<CompilerVisibleProperty Include="SpotifyClientIdSecret" />
+		<CompilerVisibleProperty Include="SpotifyClientSecretSecret" />
 	</ItemGroup>
 
 	<ItemGroup>

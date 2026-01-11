@@ -36,12 +36,35 @@ try {
     Write-Output "Publishing:"
     $msBuildVerbosityArg = "/v:m"
     if ($env:CI) {
-        $msBuildVerbosityArg = ""
+        $msBuildVerbosityArg = $null
     }
-    & $msBuildPath /target:publish /p:PublishProfile=ClickOnceProfile `
-        /p:ApplicationVersion=$version /p:Configuration=Release `
-        /p:PublishDir=$publishDir /p:PublishUrl=$publishDir `
-        $msBuildVerbosityArg
+
+    # Build MSBuild arguments for embedding secrets
+    $secretArgs = @()
+    if ($env:SPOTIFY_CLIENT_ID) {
+        $secretArgs += "/p:SpotifyClientIdSecret=$env:SPOTIFY_CLIENT_ID"
+        Write-Output "Embedding Spotify Client ID as test credential"
+    }
+    if ($env:SPOTIFY_CLIENT_SECRET) {
+        $secretArgs += "/p:SpotifyClientSecretSecret=$env:SPOTIFY_CLIENT_SECRET"
+        Write-Output "Embedding Spotify Client Secret as test credential"
+    }
+
+    $msBuildArgs = @(
+        "SpotifyToM3U.csproj",
+        "/target:publish",
+        "/p:PublishProfile=ClickOnceProfile",
+        "/p:ApplicationVersion=$version",
+        "/p:Configuration=Release",
+        "/p:PublishDir=$publishDir",
+        "/p:PublishUrl=$publishDir"
+    ) + $secretArgs
+    
+    if ($null -ne $msBuildVerbosityArg -and $msBuildVerbosityArg -ne "") {
+        $msBuildArgs += $msBuildVerbosityArg
+    }
+    
+    & $msBuildPath $msBuildArgs
     # Measure publish size.
     $publishSize = (Get-ChildItem -Path "$publishDir/Application Files" -Recurse |
         Measure-Object -Property Length -Sum).Sum / 1Mb
