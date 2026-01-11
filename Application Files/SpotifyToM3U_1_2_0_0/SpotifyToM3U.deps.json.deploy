@@ -14,6 +14,7 @@
           "Microsoft.Xaml.Behaviors.Wpf": "1.1.135",
           "NLog": "6.0.2",
           "NLog.Extensions.Hosting": "6.0.2",
+          "SecretPropertys": "2.0.0",
           "Shard.DownloadAssistant": "1.1.0",
           "SpotifyAPI.Web": "7.2.1",
           "SpotifyAPI.Web.Auth": "7.2.1",
@@ -205,6 +206,7 @@
           }
         }
       },
+      "SecretPropertys/2.0.0": {},
       "Shard.DownloadAssistant/1.1.0": {
         "dependencies": {
           "Shard.Requests": "2.2.1"
@@ -401,6 +403,13 @@
       "sha512": "sha512-H+kC/F52BF6EEzj2qYdPOEwH2EvnP1A2NZsvMBjWdnsjeRH1Bf1i/Mk2G+M+DXutJ/AFd+yV6gF0rbp3KLzk9w==",
       "path": "nlog.extensions.logging/6.0.2",
       "hashPath": "nlog.extensions.logging.6.0.2.nupkg.sha512"
+    },
+    "SecretPropertys/2.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-AeLrnTmHvoG6mtqQAuO8q4lBww/D7zubfgVHLY39wC7EJlJvhJPk6Th1eO3BKGwrJm88p51sI1LtiDYf1rQXow==",
+      "path": "secretpropertys/2.0.0",
+      "hashPath": "secretpropertys.2.0.0.nupkg.sha512"
     },
     "Shard.DownloadAssistant/1.1.0": {
       "type": "package",
