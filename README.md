@@ -1,5 +1,16 @@
-﻿# 🎵 Spotify Playlist to M3U8 Converter  
+ # 🎵 Spotify Playlist to M3U8 Converter  
 ![Platform](https://img.shields.io/badge/Platform-Windows-blue) ![.NET](https://img.shields.io/badge/.NET-8.0+-purple) ![License](https://img.shields.io/badge/License-MIT-green) ![Downloads](https://img.shields.io/github/downloads/TypNull/SpotifyToM3U/total)
+
+> [!WARNING]
+> **This project is no longer maintained.**
+>
+> Spotify has restricted API token access to premium users only. Since I migrated away from Spotify and no longer maintain a premium subscription, I can no longer adequately support or test this service. My API tokens will expire on March 9th, 2026.
+>
+> If still necessary, this functionality will be merged into the Tubifarry Lidarr extension in a future release. Lidarr's native Spotify integration will likely continue to work for users who need this capability.
+>
+> The code remains open source and available for anyone who wishes to fork and continue development.
+>
+> Thank's to everyone who used this app!
 
 **Seamlessly bridge Spotify and your local music library!**  
 This tool converts Spotify playlists (public or private) into **M3U8** playlist files, letting you enjoy your curated music offline in any player that supports M3U playlists (like VLC, Foobar2000, or Winamp).  
@@ -65,7 +76,7 @@ Report bugs on the [Issues page](https://github.com/TypNull/SpotifyToM3U/issues)
 
 ## 📜 License & Credits
 
-**MIT License** © 2025 [TypNull](https://github.com/TypNull)
+**MIT License** © 2026 [TypNull](https://github.com/TypNull)
 
 ---
 
